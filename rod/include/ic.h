@@ -1,3 +1,6 @@
+//sistema de condições iniciais para a simulação
+//Tenho que pensar em um jeito melhor de fazer isso, criando uma classe ou namespace
+//Bem trabalhoso
 #ifndef _IC_H_
 #define _IC_H_
 #include <gsl/gsl_eigen.h>
@@ -7,6 +10,7 @@
 #include "../include/define.h"
 #include "../include/parameter_order.h"
 #include "../include/parameters.h"
+
 void random_ic(float *ni, int *pt, Parameters params);
 void homogeneous_ic(float *ni, int *pt, Parameters params);
 void cholesteric_ic(float *ni, int *pt, Parameters params);

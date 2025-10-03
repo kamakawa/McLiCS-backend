@@ -1,3 +1,4 @@
+//Alterei bem pouco este arquivo, só complementei o destrutor da classe simulator, por segurança
 #include <gsl/gsl_rng.h>
 
 #include <iostream>
@@ -21,7 +22,21 @@ class simulator {
   //~ virtual int Evol(gsl_rng * rng, parameters *params){return 0;};
   Evolve *evolve;
   int *pt;
-  ~simulator();
+  
+  ~simulator() {
+    if (evolve) {
+      delete evolve;
+      evolve = nullptr;
+    }
+    if (pt) {
+      delete[] pt;
+      pt = nullptr;
+    }
+    if (ni) {
+      delete[] ni;
+      ni = nullptr;
+    }
+  }
 
  private:
   float *ni;

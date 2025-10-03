@@ -11,6 +11,7 @@
 #include "../include/parameters.h"
 #include "../include/potential.h"
 
+//condições de ancoragem 
 class Anchoring {
  public:
   //~     Anchoring();

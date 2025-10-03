@@ -1,3 +1,7 @@
+//Modifiquei
+//Adicionado destrutor virtual em Geometry
+//Todos os membros inicializados explicitamente com valores seguros
+//Elimina valores "lixo" e comportamentos indefinidos
 #ifndef GEOMETRY_H_
 #define GEOMETRY_H_
 #include <gsl/gsl_rng.h>
@@ -15,7 +19,12 @@
 
 class Geometry {
  public:
-  Geometry(Parameters *params);
+   Geometry(Parameters *params) 
+      : Nx(params->lattice.Nx), Ny(params->lattice.Ny), Nz(params->lattice.Nz), // Inicialização explícita
+        nSurfaces(0), surfaces(), bulk_potential(nullptr),
+        ns(nullptr), params(params) {
+  }
+
   int Nx, Ny, Nz;
   std::vector<class Anchoring *> surfaces;
   int nSurfaces;
@@ -28,7 +37,8 @@ class Geometry {
   float (*bulk_potential)(float ni[3], float nj[3], Parameters *params, float rij[3], int nk);
   float *ns;
   Parameters *params;
-  //~ ~Geometry(){};
+
+  ~Geometry() = default;
 };
 
 class Bulk_Geometry : public Geometry {
