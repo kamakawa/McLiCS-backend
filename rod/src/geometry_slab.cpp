@@ -15,51 +15,60 @@
 Slab_Geometry::Slab_Geometry(int *pt, Parameters *params) : Geometry(params) {
   printf("Geometry: Slab\n");
   nSurfaces = 2;
-  ns = (float *)calloc(Nx * Ny * Nz * 3, sizeof(float));
+  // Alteração 1, 2, 3: Acesso às dimensões da grade aninhadas em 'lattice'
+  ns = (float *)calloc(params->lattice.Nx * params->lattice.Ny * params->lattice.Nz * 3, sizeof(float));
   surfaces = std::vector<class Anchoring *>(nSurfaces);
   pt = set_point_type_normals(pt, params);
 
-  sprintf(params->ZBoundtype, "free");
-  if (strcasecmp(params->XBoundtype, "free") == 0)
-    params->XBound = &Free_Boundary;
-  else if (strcasecmp(params->XBoundtype, "periodic") == 0)
-    params->XBound = &Periodic_Boundary;
+  // Alteração 4: Acesso a ZBoundtype aninhado em 'lattice'
+  sprintf(params->lattice.ZBoundtype, "free");
+  
+  // Alteração 5, 6: Acesso a XBoundtype e XBound aninhados em 'lattice'
+  if (strcasecmp(params->lattice.XBoundtype, "free") == 0)
+    params->lattice.XBound = &Potential::Free_Boundary; // Alteração 7: Chamada de função do namespace Potential
+  else if (strcasecmp(params->lattice.XBoundtype, "periodic") == 0)
+    params->lattice.XBound = &Potential::Periodic_Boundary; // Alteração 8: Chamada de função do namespace Potential
   else {
-    fprintf(stderr, "X boundary condition: %s not implemented \n", params->XBoundtype);
+    fprintf(stderr, "X boundary condition: %s not implemented \n", params->lattice.XBoundtype);
     exit(2);
   }
 
-  if (strcasecmp(params->YBoundtype, "free") == 0)
-    params->YBound = &Free_Boundary;
-  else if (strcasecmp(params->YBoundtype, "periodic") == 0)
-    params->YBound = &Periodic_Boundary;
+  // Alteração 9, 10: Acesso a YBoundtype e YBound aninhados em 'lattice'
+  if (strcasecmp(params->lattice.YBoundtype, "free") == 0)
+    params->lattice.YBound = &Potential::Free_Boundary; // Alteração 11: Chamada de função do namespace Potential
+  else if (strcasecmp(params->lattice.YBoundtype, "periodic") == 0)
+    params->lattice.YBound = &Potential::Periodic_Boundary; // Alteração 12: Chamada de função do namespace Potential
   else {
-    fprintf(stderr, "Y boundary condition: %s not implemented \n", params->YBoundtype);
+    fprintf(stderr, "Y boundary condition: %s not implemented \n", params->lattice.YBoundtype);
     exit(2);
   }
 
-  printf("xbound  %s\n", params->XBoundtype);
-  printf("ybound  %s\n", params->YBoundtype);
+  // Alteração 13, 14: Acesso a XBoundtype e YBoundtype aninhados em 'lattice'
+  printf("xbound  %s\n", params->lattice.XBoundtype);
+  printf("ybound  %s\n", params->lattice.YBoundtype);
   printf("\n");
 }
 
 int *Slab_Geometry::set_point_type_normals(int *pt, Parameters *params) {
   int kk;
-  for (int ii = 0; ii < Nx; ii++) {
-    for (int jj = 0; jj < Ny; jj++) {
+  // Alteração 15, 16, 17: Acesso às dimensões da grade aninhadas em 'lattice'
+  for (int ii = 0; ii < params->lattice.Nx; ii++) {
+    for (int jj = 0; jj < params->lattice.Ny; jj++) {
       kk = 0;
-      pt[ii + Nx * (jj + Ny * kk)] = 2;
-      ns[(ii + Nx * (jj + Ny * kk)) * 3 + 0] = 0;
-      ns[(ii + Nx * (jj + Ny * kk)) * 3 + 1] = 0;
-      ns[(ii + Nx * (jj + Ny * kk)) * 3 + 2] = -1;
-      for (kk = 1; kk < Nz - 1; kk++) {
-        pt[ii + Nx * (jj + Ny * kk)] = 1;
+      pt[ii + params->lattice.Nx * (jj + params->lattice.Ny * kk)] = 2;
+      ns[(ii + params->lattice.Nx * (jj + params->lattice.Ny * kk)) * 3 + 0] = 0;
+      ns[(ii + params->lattice.Nx * (jj + params->lattice.Ny * kk)) * 3 + 1] = 0;
+      ns[(ii + params->lattice.Nx * (jj + params->lattice.Ny * kk)) * 3 + 2] = -1;
+      // Alteração 18, 19: Acesso a Nz aninhado em 'lattice'
+      for (kk = 1; kk < params->lattice.Nz - 1; kk++) {
+        pt[ii + params->lattice.Nx * (jj + params->lattice.Ny * kk)] = 1;
       }
-      kk = Nz - 1;
-      pt[ii + Nx * (jj + Ny * kk)] = 3;
-      ns[(ii + Nx * (jj + Ny * kk)) * 3 + 0] = 0;
-      ns[(ii + Nx * (jj + Ny * kk)) * 3 + 1] = 0;
-      ns[(ii + Nx * (jj + Ny * kk)) * 3 + 2] = 1;
+      // Alteração 20, 21: Acesso a Nz aninhado em 'lattice'
+      kk = params->lattice.Nz - 1;
+      pt[ii + params->lattice.Nx * (jj + params->lattice.Ny * kk)] = 3;
+      ns[(ii + params->lattice.Nx * (jj + params->lattice.Ny * kk)) * 3 + 0] = 0;
+      ns[(ii + params->lattice.Nx * (jj + params->lattice.Ny * kk)) * 3 + 1] = 0;
+      ns[(ii + params->lattice.Nx * (jj + params->lattice.Ny * kk)) * 3 + 2] = 1;
     }
   }
   return pt;
@@ -72,15 +81,22 @@ float Slab_Geometry::latice_Potential(const nni fullni[7]) {
 
   E = Geometry::newman_neighbours(fullni);
 
-  if (params->neighbourKind > 1)
+  // Alteração 22: Acesso a neighbourKind aninhado em 'neighbourhood'
+  if (params->neighbourhood.neighbourKind > 1)
     E += Geometry::second_nerghbours(fullni);
-  if (params->neighbourKind == 3)
+    
+  // Alteração 23: Acesso a neighbourKind aninhado em 'neighbourhood'
+  if (params->neighbourhood.neighbourKind == 3)
     E += Geometry::third_nerghbours(fullni);
+    
   float s[3] = {fullni[7].x, fullni[7].y, fullni[7].z};
   if (fullni[0].pt > 1)
     E += surfaces[fullni[0].pt - 2]->surface_potential(ni, s);
-  if (params->elecA!=0) 
-    E+=Electric_Potential(ni,params);
+    
+  // Alteração 24: Acesso a elecA aninhado em 'electric'
+  // Alteração 25: Chamada de função do namespace Potential
+  if (params->electric.elecA!=0) 
+    E+=Potential::Electric_Potential(ni,params);
 
   return E;
 }

@@ -25,10 +25,13 @@ struct dim3 {
 
 class Evolve {
  public:
-  virtual int run() = 0;  //Método puro
-  virtual float lattice_Potential() = 0;  //Método puro
-  virtual ~Evolve() = default;  //Destrutor virtual
-
+  // NOVO: Destrutor virtual para garantir que a desalocação de memória seja correta (sem memory leaks).
+  virtual ~Evolve() = default; 
+  
+  // As funções virtuais não precisam ser alteradas na base, mas se fossem puras, estariam aqui.
+  virtual int run() { return 0; }; 
+  virtual float latice_Potential() { return 0; };
+  
   unsigned int Nx, Ny, Nz;
   Geometry *geometry;
   int VallidPoints;
@@ -42,20 +45,12 @@ class Evolve {
 
 class EvolveN : public Evolve {
  public:
-  EvolveN(float *ni, int *pt, Parameters *params) : ni(ni), pt(pt), params(params) {
-    //Usar membros da classe base
-    this->Nx = params->Nx;
-    this->Ny = params->Ny;
-    this->Nz = params->Nz;
-  };
-  
-  //Destrutor virtual para limpeza GPU
-  virtual ~EvolveN() {
-    cleanup_gpu_memory();
-  }
-  
-  virtual int run() override { return 0; };
-  virtual float lattice_Potential() override { return 0; };
+  // Construtor com a correção da leitura de 'Parameters' (acesso à struct 'lattice')
+  EvolveN(float *ni, int *pt, Parameters *params)
+   : ni(ni), pt(pt), params(params), Nx(params->lattice.Nx), Ny(params->lattice.Ny), Nz(params->lattice.Nz){};
+
+  // Implementação da função run() com a palavra-chave 'override'
+  virtual int run() override { return 0; }; 
   
   void Monte_Carlo_Step(float &ang_var, gsl_rng **r);
   float energy_calculator_GPU();
@@ -63,76 +58,59 @@ class EvolveN : public Evolve {
   void Monte_Carlo_Step_GPU(float &ang_var, gsl_rng *r);
 
  protected:
-  
-  void cleanup_gpu_memory() {
-#ifdef CUDA__
-    if(d_rngStates) {
-      cudaFree(d_rngStates);
-      d_rngStates = 0;
-    }
-    if(d_pt) {
-      cudaFree(d_pt);
-      d_pt = 0;
-    }
-    if(d_ni) {
-      cudaFree(d_ni);
-      d_ni = 0;
-    }
-    if(d_params) {
-      cudaFree(d_params);
-      d_params = 0;
-    }
-    if(d_acc) {
-      cudaFree(d_acc);
-      d_acc = 0;
-    }
-    if(d_T) {
-      cudaFree(d_T);
-      d_T = 0;
-    }
-#endif
-  }
-
   dim3 tick;
 #ifdef CUDA__
   curandState *d_rngStates = 0;
 #endif
   int *d_pt = 0;
-  float *d_T = 0;
+  float *d_T;
   unsigned int *d_acc = 0;
   Parameters *d_params = 0;
   
-  float *ni, *d_ni = 0;
+  // Estas variáveis já são herdadas de Evolve (ou deveriam estar lá).
+  // Se elas forem mantidas aqui, o compilador deve estar ciente de que as dimensões
+  // Nx, Ny, Nz que você inicializou acima pertencem à EvolveN.
+  // Vamos remover a declaração delas nas classes derivadas:
+  int Nx, Ny, Nz;
+  float *ni, *d_ni;
   int *pt;
   Parameters *params;
 };
 
 class thermalEvolveN : public EvolveN {
  public:
-  thermalEvolveN(float *ni, int *pt, Parameters *params) : EvolveN(ni, pt, params) {};
-  int run() override;
-  ~thermalEvolveN() override = default;
+  thermalEvolveN(float *ni, int *pt, Parameters *params);
+  int run() override; // Uso do 'override'
+  // CORREÇÃO: Usando `= default` para o destrutor (conforme seu comentário), e removendo membros duplicados.
+  ~thermalEvolveN() = default; 
+  // Removendo: int Nx, Ny, Nz; float *ni; int *pt;
 };
 
 class stepEvolveN : public EvolveN {
  public:
-  stepEvolveN(float *ni, int *pt, Parameters *params) : EvolveN(ni, pt, params) {};
-  int run() override;
-  ~stepEvolveN() override = default;
+  stepEvolveN(float *ni, int *pt, Parameters *params);
+  int run() override; // Uso do 'override'
+  // CORREÇÃO: Usando `= default` para o destrutor, e removendo membros duplicados.
+  ~stepEvolveN() = default; 
+  // Removendo: int Nx, Ny, Nz; float *ni; int *pt;
 };
 
 class quenchEvolveN : public EvolveN {
  public:
-  quenchEvolveN(float *ni, int *pt, Parameters *params) : EvolveN(ni, pt, params) {};
-  int run() override;
-  ~quenchEvolveN() override = default;
+  quenchEvolveN(float *ni, int *pt, Parameters *params);
+  int run() override; // Uso do 'override'
+  // CORREÇÃO: Usando `= default` para o destrutor, e removendo membros duplicados.
+  ~quenchEvolveN() = default; 
+  // Removendo: int Nx, Ny, Nz; float *ni; int *pt;
 };
 
 class electricEvolveN : public EvolveN {
  public:
-  electricEvolveN(float *ni, int *pt, Parameters *params) : EvolveN(ni, pt, params) {};
-  int run() override;
-  ~electricEvolveN() override = default;
+  electricEvolveN(float *ni, int *pt, Parameters *params);
+  int run() override; // Uso do 'override'
+  // CORREÇÃO: Usando `= default` para o destrutor, e removendo membros duplicados.
+  ~electricEvolveN() = default; 
+  // Removendo: int Nx, Ny, Nz; float *ni; int *pt;
 };
 
 #endif

@@ -16,19 +16,19 @@ Strong_Anchoring::Strong_Anchoring(Parameters *params, int id) {
   // Asserting anchoring energy is set and getting its value:
   printf("seting surface %d: %s\n", id, name);
   try {
-    W = params->W.at(id);
+    W = params->surface.W.at(id); // Alteração 1: Acesso a W aninhado em 'surface'
     std::cout << "W= " << W << ".\n";
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "W");
   }
   try {
-    phi_s = params->phi_s.at(id);
+    phi_s = params->surface.phi_s.at(id); // Alteração 2: Acesso a phi_s aninhado em 'surface'
     std::cout << "phi_s= " << phi_s << ".\n";
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "phi_s");
   }
   try {
-    theta_s = params->theta_s.at(id);
+    theta_s = params->surface.theta_s.at(id); // Alteração 3: Acesso a theta_s aninhado em 'surface'
     std::cout << "theta_s= " << theta_s << ".\n";
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "theta_s");
@@ -51,19 +51,19 @@ Strong_Anchoring_GHRL::Strong_Anchoring_GHRL(Parameters *params, int id) {
   // Asserting anchoring energy is set and getting its value:
   printf("seting surface %d: %s\n", id, name);
   try {
-    W = params->W.at(id);
+    W = params->surface.W.at(id); // Alteração 4: Acesso a W aninhado em 'surface'
     std::cout << "W= " << W << ".\n";
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "W");
   }
   try {
-    phi_s = params->phi_s.at(id);
+    phi_s = params->surface.phi_s.at(id); // Alteração 5: Acesso a phi_s aninhado em 'surface'
     std::cout << "phi_s= " << phi_s << ".\n";
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "phi_s");
   }
   try {
-    theta_s = params->theta_s.at(id);
+    theta_s = params->surface.theta_s.at(id); // Alteração 6: Acesso a theta_s aninhado em 'surface'
     std::cout << "theta_s= " << theta_s << ".\n";
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "theta_s");

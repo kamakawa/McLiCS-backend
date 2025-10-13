@@ -14,11 +14,17 @@
 #include "../include/parameters.h"
 #include "../include/potential.h"
 #include "../include/simulator.h"
+
 #define MCLICS_VERSION "0.1"
 int main(int argc, char **argv) {
   printf("### Starting McLiCS version: %s ###\n\n",MCLICS_VERSION);
-  Parameters params = read_input_file(argv[1]);
-  print_parameters(params);
+  
+  // Alteração 1: Chamada de função do namespace IO
+  Parameters params = IO::read_input_file(argv[1]);
+  
+  // Alteração 2: Chamada de função do namespace IO
+  IO::print_parameters(params);
+  
   char fname[1000];
   simulator *sim = new simulator(&params);
   sim->Setup_simmulation(params);

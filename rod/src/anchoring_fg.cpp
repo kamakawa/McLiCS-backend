@@ -9,6 +9,8 @@
 #include "../include/anchoring.h"
 #include "../include/parameters.h"
 #include "../include/potential.h"
+
+// Construtor FG_Anchoring
 FG_Anchoring::FG_Anchoring(Parameters *params, int id) {
   this->id = id;
   // Asserting anchoring energy is set and getting its value:
@@ -16,16 +18,16 @@ FG_Anchoring::FG_Anchoring(Parameters *params, int id) {
   this->params = params;
 
   try {
-    W = params->W.at(id);
+    W = params->surface.W.at(id); // Alteração 1: Acesso ao W aninhado em 'surface'
     std::cout << "W= " << W << ".\n";
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "W");
   }
-  if (params->neighbourKind == 2) {
+  if (params->neighbourhood.neighbourKind == 2) { // Alteração 2: Acesso a neighbourKind
     W *= 4;
     std::cout << "W reescaled by 4 to " << W << " to acomodate the extra neighbours.\n";
   }
-  if (params->neighbourKind == 3) {
+  if (params->neighbourhood.neighbourKind == 3) { // Alteração 3: Acesso a neighbourKind
     W *= 5;
     std::cout << "W reescaled by 4 to " << W << " to acomodate the extra neighbours.\n";
   }
@@ -39,22 +41,23 @@ float FG_Anchoring::surface_potential(float ni[3], float s[3]) {
   return +W * nij * nij;
 }
 
+// Construtor FG_Anchoring_GHRL
 FG_Anchoring_GHRL::FG_Anchoring_GHRL(Parameters *params, int id) {
   this->id = id;
   this->params = params;
   // Asserting anchoring energy is set and getting its value:
   printf("seting surface %d: %s\n", id, name);
   try {
-    W = params->W.at(id);
+    W = params->surface.W.at(id); // Alteração 4: Acesso ao W aninhado em 'surface'
     std::cout << "W= " << W << ".\n";
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "W");
   }
-  if (params->neighbourKind == 2) {
+  if (params->neighbourhood.neighbourKind == 2) { // Alteração 5: Acesso a neighbourKind
     W *= 4;
     std::cout << "W reescaled by 4 to " << W << " to acomodate the extra neighbours.\n";
   }
-  if (params->neighbourKind == 3) {
+  if (params->neighbourhood.neighbourKind == 3) { // Alteração 6: Acesso a neighbourKind
     W *= 6;
     std::cout << "W reescaled by 4 to " << W << " to acomodate the extra neighbours.\n";
   }
@@ -62,11 +65,13 @@ FG_Anchoring_GHRL::FG_Anchoring_GHRL(Parameters *params, int id) {
 }
 
 float FG_Anchoring_GHRL::surface_potential(float ni[3], float s[3]) {
-  const float el = params->ghrl_lambda;
-  const float em = params->ghrl_mu;
-  const float en = params->ghrl_nu;
-  const float er = params->ghrl_rho;
-  const float es = params->ghrl_sigma;
+  // Alteração 7: Acesso aos parâmetros GHRL aninhados em 'potential'
+  const float el = params->potential.ghrl_lambda; 
+  const float em = params->potential.ghrl_mu;
+  const float en = params->potential.ghrl_nu;
+  const float er = params->potential.ghrl_rho;
+  const float es = params->potential.ghrl_sigma;
+  
   float v15 = 1.5;
   float v05 = 0.5;
   float mod = sqrtf(fabs(ni[0] * s[0] + ni[1] * s[1] + ni[2] * s[2]));

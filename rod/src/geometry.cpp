@@ -13,9 +13,13 @@
 #include "../include/parameters.h"
 #include "../include/potential.h"
 
-Geometry::Geometry(Parameters *params) : Nx(params->Nx), Ny(params->Ny), Nz(params->Nz) {
-  this->params = params;
-};
+  //Geometry::Geometry(Parameters *params) 
+  //    : Nx(params->lattice.Nx), Ny(params->lattice.Ny), Nz(params->lattice.Nz) {
+  //  this->params = params;
+  //};
+
+// newman_neighbours não precisa de alterações na lógica interna, apenas a Bulk_potential (que não é diretamente acessada aqui, mas é um ponteiro).
+// A função bulk_potential será chamada corretamente pelo ponteiro de função, desde que o ponteiro tenha sido inicializado com a função correta.
 float Geometry::newman_neighbours(const nni fullni[]) {
   float rij[3];
   double E = 0;
@@ -70,6 +74,8 @@ float Geometry::newman_neighbours(const nni fullni[]) {
   }
   return E;
 }
+
+// second_nerghbours não precisa de alterações na lógica interna
 float Geometry::second_nerghbours(const nni fullni[]) {
   float rij[3];
   double E = 0;
@@ -161,6 +167,8 @@ float Geometry::second_nerghbours(const nni fullni[]) {
   }
   return E;
 }
+
+// third_nerghbours não precisa de alterações na lógica interna
 float Geometry::third_nerghbours(const nni fullni[]) {
   float rij[3];
   double E = 0;
@@ -226,15 +234,19 @@ float Geometry::third_nerghbours(const nni fullni[]) {
   return E;
 }
 
+// Alteração 4: Assinatura da função Boundary_Init (adicionando const&)
 void Geometry::Boundary_Init(Parameters *params) {
   std::string anchoring;
+  // Alteração 5: Acesso a anchoring_type aninhado em 'surface'
   for (int ii = 0; ii < nSurfaces; ii++) {
     try {
-      anchoring = params->anchoring_type.at(ii);
+      anchoring = params->surface.anchoring_type.at(ii);
     } catch (std::out_of_range dummy_var) {
       std::cout << "You must define " << nSurfaces << " boundaries.\nPlease review your input file.\nAborting the program.\n\n";
       exit(0);
     }
+    // As chamadas new RP_Anchoring, new FG_Anchoring, etc. já usam o ponteiro 'params'
+    // O construtor delas (que você já corrigiu) vai cuidar do acesso aninhado.
     if (strcasecmp(anchoring.c_str(), "rp") == 0)
       surfaces.at(ii) = new RP_Anchoring(params, ii);
     else if (strcasecmp(anchoring.c_str(), "fg") == 0)

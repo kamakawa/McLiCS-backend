@@ -17,6 +17,11 @@
 #include "../include/parameters.h"
 #include "../include/potential.h"
 
+namespace Potential { 
+  int Free_Boundary(int &ii, int NN); 
+  int Periodic_Boundary(int &ii, int NN);
+  float Electric_Potential(const float ni[3], const Parameters* params);
+}
 class Geometry {
  public:
    Geometry(Parameters *params) 
@@ -34,8 +39,7 @@ class Geometry {
   void Boundary_Init(Parameters *params);
   virtual int *set_point_type_normals(int *pt, Parameters *params) = 0;
   virtual float latice_Potential(const nni ni[7]) = 0;
-  float (*bulk_potential)(float ni[3], float nj[3], Parameters *params, float rij[3], int nk);
-  float *ns;
+  float (*bulk_potential)(const float ni[3], const float nj[3], const Parameters *params, const float rij[3], int nk);  float *ns;
   Parameters *params;
 
   ~Geometry() = default;

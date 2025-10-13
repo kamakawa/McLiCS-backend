@@ -14,10 +14,13 @@
 #include "../include/potential.h"
 
 quenchEvolveN::quenchEvolveN(float *ni, int *ppt, Parameters *params)
-    : Nx(params->Nx), Ny(params->Ny), Nz(params->Nz), EvolveN(ni, ppt, params) {
+    // Alteração 1: A lista de inicialização Nx, Ny, Nz é removida daqui, pois é tratada na classe base EvolveN (que você corrigiu)
+    : EvolveN(ni, ppt, params) { 
   printf("Initializing Step loop:\n");
-  printf("Initial File Number= %d\n", params->first_file);
-  printf("Last File Number= %d\n\n", params->first_file + params->fn);
+  // Alteração 2: Acesso a first_file aninhado em 'mc'
+  printf("Initial File Number= %d\n", params->mc.first_file);
+  // Alteração 3, 4: Acesso a fn e first_file aninhados em 'mc'
+  printf("Last File Number= %d\n\n", params->mc.first_file + params->mc.fn);
   this->ni = ni;
   this->pt = ppt;
   this->params = params;
@@ -44,39 +47,64 @@ int quenchEvolveN::run() {
   FILE *po_file = fopen(fname, "a");
   fprintf(po_file, "ii S varS E varE\n");
   fflush(po_file);
-  params->T = params->Ti;
+  // Alteração 5: Acesso a T e Ti aninhados em 'potential'
+  params->potential.T = params->potential.Ti;
+  
+  // Alteração 6, 7, 8: Acesso a MCT, MCS e fn aninhados em 'mc'
   printf("Step relaxation, for nematic molecules, using MCT=%d MCS=%d and fn=%d using %d threads\n",
-         params->MCT, params->MCS, params->fn, num_threads);
+         params->mc.MCT, params->mc.MCS, params->mc.fn, num_threads);
   fflush(stdout);
-  for (int ii = params->first_file; ii < params->fn + params->first_file; ii++) {
-    params->T = params->Ti;
-    for (int step = 0; step < params->MCT; step++) {
+  
+  // Alteração 9, 10, 11: Acesso a first_file e fn aninhados em 'mc'
+  for (int ii = params->mc.first_file; ii < params->mc.fn + params->mc.first_file; ii++) {
+    
+    // Alteração 12, 13: Acesso a T e Ti aninhados em 'potential'
+    params->potential.T = params->potential.Ti;
+    
+    // Alteração 14: Acesso a MCT aninhado em 'mc'
+    for (int step = 0; step < params->mc.MCT; step++) {
       Monte_Carlo_Step(ang_var, rng);
     }
-    params->T = params->Tf;
-    for (int step = 0; step < params->MCT*params->dT; step++) {
+    
+    // Alteração 15: Acesso a T e Tf aninhados em 'potential'
+    params->potential.T = params->potential.Tf;
+    
+    // Alteração 16, 17: Acesso a MCT e dT aninhados em 'mc' e 'potential'
+    for (int step = 0; step < params->mc.MCT*params->potential.dT; step++) {
       Monte_Carlo_Step(ang_var, rng);
     }
     S1 = 0;
     S2 = 0;
     E = 0;
     E2 = 0;
-    for (int step = 0; step < params->MCS; step++) {
+    
+    // Alteração 18: Acesso a MCS aninhado em 'mc'
+    for (int step = 0; step < params->mc.MCS; step++) {
       Monte_Carlo_Step(ang_var, rng);
       tempE = energy_calculator();
       E2 += tempE * tempE;
       E += tempE;
-      Matrice_constructor(ni, mat_n, pt, *params);
-      sTemp = Eigen_value_evaluation(mat_n, vec_n);
+      
+      // Alteração 19: Chamada de função do namespace OrderParameters
+      OrderParameters::Matrice_constructor(ni, mat_n, pt, *params);
+      
+      // Alteração 20: Chamada de função do namespace OrderParameters
+      sTemp = OrderParameters::Eigen_value_evaluation(mat_n, vec_n);
       S1 += sTemp;
       S2 += sTemp * sTemp;
     }
-    E /= params->MCS;
-    E2 /= params->MCS;
-    S1 /= params->MCS;
-    S2 /= params->MCS;
+    
+    // Alteração 21, 22: Acesso a MCS aninhado em 'mc'
+    E /= params->mc.MCS;
+    E2 /= params->mc.MCS;
+    S1 /= params->mc.MCS;
+    S2 /= params->mc.MCS;
+    
     sprintf(fname, "director_field_%d.csv", ii);
-    print_n(fname, ni, *params, pt);
+    
+    // Alteração 23: Chamada de função do namespace IO
+    IO::print_n(fname, ni, *params, pt);
+    
     fprintf(po_file, "%d %g %g %g %g\n", ii, S1, S2 - S1 * S1, E, (E2 - E * E));
     fflush(po_file);
   }

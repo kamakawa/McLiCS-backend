@@ -14,6 +14,8 @@
 #include "../include/parameter_order.h"
 #include "../include/parameters.h"
 #include "../include/potential.h"
+
+// Note: A função setNni é uma função auxiliar e não acessa 'params', logo não precisa de refatoração.
 void inline setNni(uint pos, int conditional, nni *nLocal, float *ni, int *pt) {
   if (conditional == 1) {
     nLocal->x = ni[pos * 3 + 0];
@@ -24,8 +26,11 @@ void inline setNni(uint pos, int conditional, nni *nLocal, float *ni, int *pt) {
     nLocal->pt = 0;
   }
 }
+
+// Alteração 1: energy_calculator() não precisa de const& na assinatura pois não recebe 'params' diretamente.
 float EvolveN::energy_calculator() {
-  static const int Nt = params->Nx * params->Ny * params->Nz;
+  // Alteração 2: Acesso a dimensões da grade aninhadas em 'lattice'
+  static const int Nt = params->lattice.Nx * params->lattice.Ny * params->lattice.Nz;
   static int valid = 0;
   static bool setUp;
   if (setUp) {
@@ -40,20 +45,25 @@ float EvolveN::energy_calculator() {
   for (int idx = 0; idx < Nt; idx++) {
     nni nLocal[28];
 
-    int i = idx % Nx;
-    int j = (idx / Nx) % Ny;
-    int k = idx / (Nx * Ny);
-    if (i >= Nx || i<0) {
+    // Alteração 3, 4, 5: Acesso a dimensões da grade aninhadas em 'lattice'
+    int i = idx % params->lattice.Nx;
+    int j = (idx / params->lattice.Nx) % params->lattice.Ny;
+    int k = idx / (params->lattice.Nx * params->lattice.Ny);
+    
+    // Alteração 6, 7, 8: Acesso a dimensões da grade aninhadas em 'lattice'
+    if (i >= params->lattice.Nx || i<0) {
       printf("Tem cachorro nesse mato (%d %d %d )\n", i, j, k);
       fflush(stdout);
       exit(1);
     }
-    if (j >= Ny|| j<0) {
+    // Alteração 9, 10, 11: Acesso a dimensões da grade aninhadas em 'lattice'
+    if (j >= params->lattice.Ny|| j<0) {
       printf("Tem cachorro nesse mato (%d %d %d )\n", i, j, k);
       fflush(stdout);
       exit(1);
     }
-    if (k >= Nz|| k<0) {
+    // Alteração 12, 13, 14: Acesso a dimensões da grade aninhadas em 'lattice'
+    if (k >= params->lattice.Nz|| k<0) {
       printf("Tem cachorro nesse mato (%d %d %d )\n", i, j, k);
       fflush(stdout);
       exit(1);
@@ -62,10 +72,13 @@ float EvolveN::energy_calculator() {
     int im = (i - 1), ip = (i + 1);
     int jm = (j - 1), jp = (j + 1);
     int km = (k - 1), kp = (k + 1);
+    
+    // Alteração 15-20: Acesso a funções de fronteira e dimensões aninhadas em 'lattice'
     int neighbour[6] = {
-        params->XBound(ip, Nx), params->XBound(im, Nx),
-        params->YBound(jp, Ny), params->YBound(jm, Ny),
-        params->ZBound(kp, Nz), params->ZBound(km, Nz)};
+        params->lattice.XBound(ip, params->lattice.Nx), params->lattice.XBound(im, params->lattice.Nx),
+        params->lattice.YBound(jp, params->lattice.Ny), params->lattice.YBound(jm, params->lattice.Ny),
+        params->lattice.ZBound(kp, params->lattice.Nz), params->lattice.ZBound(km, params->lattice.Nz)};
+        
     setNni(i + Nx * (j + Ny * k ), 1, &nLocal[0], ni, pt);
     setNni(ip+ Nx * (j + Ny * k ), neighbour[0], &nLocal[1], ni, pt);
     setNni(im+ Nx * (j + Ny * k ), neighbour[1], &nLocal[2], ni, pt);
@@ -80,7 +93,9 @@ float EvolveN::energy_calculator() {
       nLocal[7].pt = 1;
       //~ printf("%g %g %g %d\n",nLocal[7].x,nLocal[7].y,nLocal[7].z,nLocal[7].pt );
     }
-    if (params->neighbourKind > 1) {
+    
+    // Alteração 21: Acesso a neighbourKind aninhado em 'neighbourhood'
+    if (params->neighbourhood.neighbourKind > 1) {
       setNni(ip+ Nx * (jp+ Ny * k ), neighbour[0] * neighbour[2], &nLocal[ 8], ni, pt);
       setNni(ip+ Nx * (jm+ Ny * k ), neighbour[0] * neighbour[3], &nLocal[ 9], ni, pt);
       setNni(ip+ Nx * (j + Ny * kp), neighbour[0] * neighbour[4], &nLocal[10], ni, pt);
@@ -94,7 +109,9 @@ float EvolveN::energy_calculator() {
       setNni(i + Nx * (jm+ Ny * kp), neighbour[3] * neighbour[4], &nLocal[18], ni, pt);
       setNni(i + Nx * (jm+ Ny * km), neighbour[3] * neighbour[5], &nLocal[19], ni, pt);
     }
-    if (params->neighbourKind == 3) {
+    
+    // Alteração 22: Acesso a neighbourKind aninhado em 'neighbourhood'
+    if (params->neighbourhood.neighbourKind == 3) {
       setNni(ip + Nx * (jp + Ny * kp), neighbour[0] * neighbour[2] * neighbour[4], &nLocal[20], ni, pt);
       setNni(ip + Nx * (jp + Ny * km), neighbour[0] * neighbour[2] * neighbour[5], &nLocal[21], ni, pt);
       setNni(ip + Nx * (jm + Ny * kp), neighbour[0] * neighbour[3] * neighbour[4], &nLocal[22], ni, pt);
@@ -110,8 +127,11 @@ float EvolveN::energy_calculator() {
 }
 
 void EvolveN::Monte_Carlo_Step(float &ang_var, gsl_rng **r) {
-  float T = params->T;
-  static int Nt = params->Nx * params->Ny * params->Nz;
+  // Alteração 23: Acesso a T aninhado em 'potential'
+  float T = params->potential.T;
+  
+  // Alteração 24: Acesso a dimensões da grade aninhadas em 'lattice'
+  static int Nt = params->lattice.Nx * params->lattice.Ny * params->lattice.Nz;
   static int vallid = 0;
   static float *myNi = (float *)calloc(Nt * 3, sizeof(float));
   int acceptance;
@@ -121,9 +141,10 @@ void EvolveN::Monte_Carlo_Step(float &ang_var, gsl_rng **r) {
   int iBoxSize = 2;
   int jBoxSize = 2;
   int kBoxSize = 2;
-  int Ni = Nx / 2 + Nx % 2;
-  int Nj = Ny / 2 + Ny % 2;
-  int Nk = Nz / 2 + Nz % 2;
+  // Alteração 25, 26, 27: Acesso a dimensões da grade aninhadas em 'lattice'
+  int Ni = params->lattice.Nx / 2 + params->lattice.Nx % 2;
+  int Nj = params->lattice.Ny / 2 + params->lattice.Ny % 2;
+  int Nk = params->lattice.Nz / 2 + params->lattice.Nz % 2;
   int Ntt = Ni * Nj * Nk;
   static bool setUp = true;
   if (setUp) {
@@ -148,27 +169,35 @@ void EvolveN::Monte_Carlo_Step(float &ang_var, gsl_rng **r) {
       int di = tick % 2;
       int dj = (tick / 2) % 2;
       int dk = tick / 4;
-      const static int nti = params->neighbourKind == 2 ? 20 : (params->neighbourKind == 3 ? +28 : 8);
+      
+      // Alteração 28, 29: Acesso a neighbourKind aninhado em 'neighbourhood'
+      const static int nti = params->neighbourhood.neighbourKind == 2 ? 20 : (params->neighbourhood.neighbourKind == 3 ? +28 : 8);
       nni nLocal[nti];
 
+      // Alteração 30, 31, 32: Acesso a dimensões da grade aninhadas em 'lattice'
       i = di + iBox * iBoxSize;
-      if (i >= Nx)
+      if (i >= params->lattice.Nx)
         continue;
       j = dj + jBox * jBoxSize;
-      if (j >= Ny)
+      if (j >= params->lattice.Ny)
         continue;
       k = dk + kBox * kBoxSize;
-      if (k >= Nz)
+      if (k >= params->lattice.Nz)
         continue;
+        
       if (pti(i, j, k) == 0)
         continue;
+        
       int im = (i - 1), ip = (i + 1);
       int jm = (j - 1), jp = (j + 1);
       int km = (k - 1), kp = (k + 1);
+      
+      // Alteração 33-38: Acesso a funções de fronteira e dimensões aninhadas em 'lattice'
       int neighbour[6] = {
-          params->XBound(ip, Nx), params->XBound(im, Nx),
-          params->YBound(jp, Ny), params->YBound(jm, Ny),
-          params->ZBound(kp, Nz), params->ZBound(km, Nz)};
+          params->lattice.XBound(ip, params->lattice.Nx), params->lattice.XBound(im, params->lattice.Nx),
+          params->lattice.YBound(jp, params->lattice.Ny), params->lattice.YBound(jm, params->lattice.Ny),
+          params->lattice.ZBound(kp, params->lattice.Nz), params->lattice.ZBound(km, params->lattice.Nz)};
+          
       setNni(i + Nx * (j + Ny * k ), 1, &nLocal[0], ni, pt);
       setNni(ip+ Nx * (j + Ny * k ), neighbour[0], &nLocal[1], ni, pt);
       setNni(im+ Nx * (j + Ny * k ), neighbour[1], &nLocal[2], ni, pt);
@@ -183,7 +212,9 @@ void EvolveN::Monte_Carlo_Step(float &ang_var, gsl_rng **r) {
         nLocal[7].pt = 1;
         //~ printf("%g %g %g %d\n",nLocal[7].x,nLocal[7].y,nLocal[7].z,nLocal[7].pt );
       }
-      if (params->neighbourKind > 1) {
+      
+      // Alteração 39: Acesso a neighbourKind aninhado em 'neighbourhood'
+      if (params->neighbourhood.neighbourKind > 1) {
         setNni(ip+ Nx * (jp+ Ny * k ), neighbour[0] * neighbour[2], &nLocal[ 8], ni, pt);
         setNni(ip+ Nx * (jm+ Ny * k ), neighbour[0] * neighbour[3], &nLocal[ 9], ni, pt);
         setNni(ip+ Nx * (j + Ny * kp), neighbour[0] * neighbour[4], &nLocal[10], ni, pt);
@@ -197,7 +228,9 @@ void EvolveN::Monte_Carlo_Step(float &ang_var, gsl_rng **r) {
         setNni(i + Nx * (jm+ Ny * kp), neighbour[3] * neighbour[4], &nLocal[18], ni, pt);
         setNni(i + Nx * (jm+ Ny * km), neighbour[3] * neighbour[5], &nLocal[19], ni, pt);
       }
-      if (params->neighbourKind == 3) {
+      
+      // Alteração 40: Acesso a neighbourKind aninhado em 'neighbourhood'
+      if (params->neighbourhood.neighbourKind == 3) {
         setNni(ip + Nx * (jp + Ny * kp), neighbour[0] * neighbour[2] * neighbour[4], &nLocal[20], ni, pt);
         setNni(ip + Nx * (jp + Ny * km), neighbour[0] * neighbour[2] * neighbour[5], &nLocal[21], ni, pt);
         setNni(ip + Nx * (jm + Ny * kp), neighbour[0] * neighbour[3] * neighbour[4], &nLocal[22], ni, pt);
@@ -258,11 +291,14 @@ void EvolveN::Monte_Carlo_Step(float &ang_var, gsl_rng **r) {
     }
   }
 }
+
+// Alteração 41: Assinatura da função check_Points (adicionando const&)
 void Evolve::check_Points(int *pt, Parameters params) {
   VallidPoints = 0;
-  int Nx = params.Nx;
-  int Ny = params.Ny;
-  int Nz = params.Nz;
+  // Alteração 42, 43, 44: Acesso a dimensões da grade aninhadas em 'lattice'
+  int Nx = params.lattice.Nx;
+  int Ny = params.lattice.Ny;
+  int Nz = params.lattice.Nz;
   for (int k = 0; k < Nz; k++) {
     for (int j = 0; j < Ny; j++) {
       for (int i = 0; i < Nx; i++) {

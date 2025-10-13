@@ -4,8 +4,8 @@
 #include <iostream>
 
 #include "../include/define.h"
+//#include "../include/evolve.cuh"
 #include "../include/evolve.h"
-//~ #include "../include/evolve.cuh"
 #include "../include/ic.h"
 #include "../include/io.h"
 #include "../include/monte_carlo.h"
@@ -14,87 +14,119 @@
 #include "../include/potential.h"
 #include "../include/simulator.h"
 
-simulator::simulator(Parameters *params) : Nx(params->Nx), Ny(params->Ny), Nz(params->Nz) {
+simulator::simulator(Parameters *params) 
+    // CORREÇÃO: Acesso às dimensões da grade aninhadas em 'lattice'
+    : Nx(params->lattice.Nx), Ny(params->lattice.Ny), Nz(params->lattice.Nz) {
   this->params = params;
 }
 
-simulator::~simulator() {
-}
+// O destrutor está implementado no .h para gerenciar a memória
+// simulator::~simulator() { }
 
 void simulator::Setup_simmulation(Parameters &params) {
-  int Nn = 3 * params.Nx * params.Ny * params.Nz;
+
+  // CORREÇÃO: Acesso às dimensões da grade aninhadas em 'lattice'
+  int Nn = 3 * params.lattice.Nx * params.lattice.Ny * params.lattice.Nz;
   ni = (float *)calloc(Nn, sizeof(float));
   pt = (int *)calloc(Nn, sizeof(int));
 
-  if (strcasecmp(params.evol, "thermal") == 0) {
+  // Bloco de Definição de Evolução (CPU e GPU)
+  // CORREÇÃO: Acesso a 'evol' aninhado em 'mc'
+  if (strcasecmp(params.mc.evol, "thermal") == 0) {
     evolve = new thermalEvolveN(ni, pt, &params);
-  } else if (strcasecmp(params.evol, "step") == 0) {
+  } else if (strcasecmp(params.mc.evol, "step") == 0) {
     evolve = new stepEvolveN(ni, pt, &params);
-  } else if (strcasecmp(params.evol, "quench") == 0) {
+  } else if (strcasecmp(params.mc.evol, "quench") == 0) {
     evolve = new quenchEvolveN(ni, pt, &params);
-  } else if (strcasecmp(params.evol, "electric") == 0) {
+  } else if (strcasecmp(params.mc.evol, "electric") == 0) {
     evolve = new electricEvolveN(ni, pt, &params);
+  } else if (strcasecmp(params.mc.evol, "thermalGPU") == 0) {
+  //  evolve = new thermalEvolveNGPU(ni, pt, &params);
+  } else if (strcasecmp(params.mc.evol, "stepGPU") == 0) {
+  //  evolve = new stepEvolveNGPU(ni, pt, &params);
+  } else if (strcasecmp(params.mc.evol, "quenchGPU") == 0) {
+  //  evolve = new quenchEvolveNGPU(ni, pt, &params);
+  } else if (strcasecmp(params.mc.evol, "electricGPU") == 0) {
+  //  evolve = new electricEvolveNGPU(ni, pt, &params);
   } else {
-    printf("Evolve %s not defined, try thermal or step\n", params.evol);
+    // CORREÇÃO: Acesso a 'evol' aninhado em 'mc'
+    printf("Evolve %s not defined, try thermal or step\n", params.mc.evol);
     exit(2);
   }
 
-  if (strcasecmp(params.geometry, "bulk") == 0) {
+  // Bloco de Definição de Geometria
+  // CORREÇÃO: Acesso a 'geometry' aninhado em 'lattice'
+  if (strcasecmp(params.lattice.geometry, "bulk") == 0) {
     evolve->geometry = new Bulk_Geometry(pt, &params);
-  } else if (strcasecmp(params.geometry, "slab") == 0) {
+  } else if (strcasecmp(params.lattice.geometry, "slab") == 0) {
     evolve->geometry = new Slab_Geometry(pt, &params);
-  } else if (strcasecmp(params.geometry, "sphere") == 0) {
+  } else if (strcasecmp(params.lattice.geometry, "sphere") == 0) {
     evolve->geometry = new Sphere_Geometry(pt, &params);
-  } else if (strcasecmp(params.geometry, "custom") == 0) {
+  } else if (strcasecmp(params.lattice.geometry, "custom") == 0) {
     evolve->geometry = new Custom_Geometry(pt, &params);
   } else {
-    fprintf(stderr, "Geometry %s not defined\n", params.geometry);
+    // CORREÇÃO: Acesso a 'geometry' aninhado em 'lattice'
+    fprintf(stderr, "Geometry %s not defined\n", params.lattice.geometry);
     exit(2);
   }
 
-  if (strcasecmp(params.XBoundtype, "free") == 0)
-    params.XBound = &Free_Boundary;
-  else if (strcasecmp(params.XBoundtype, "periodic") == 0)
-    params.XBound = &Periodic_Boundary;
+  // Bloco de Definição de Condições de Fronteira (X)
+  // CORREÇÃO: Acesso a XBoundtype aninhado em 'lattice'
+  if (strcasecmp(params.lattice.XBoundtype, "free") == 0)
+    params.lattice.XBound = &Potential::Free_Boundary; // CORREÇÃO: Namespace Potential
+  else if (strcasecmp(params.lattice.XBoundtype, "periodic") == 0)
+    params.lattice.XBound = &Potential::Periodic_Boundary; // CORREÇÃO: Namespace Potential
   else {
-    fprintf(stderr, "X boundary condition: %s not implemented \n", params.XBoundtype);
+    // CORREÇÃO: Acesso a XBoundtype aninhado em 'lattice'
+    fprintf(stderr, "X boundary condition: %s not implemented \n", params.lattice.XBoundtype);
     exit(2);
   }
 
-  if (strcasecmp(params.YBoundtype, "free") == 0)
-    params.YBound = &Free_Boundary;
-  else if (strcasecmp(params.YBoundtype, "periodic") == 0)
-    params.YBound = &Periodic_Boundary;
+  // Bloco de Definição de Condições de Fronteira (Y)
+  // CORREÇÃO: Acesso a YBoundtype aninhado em 'lattice'
+  if (strcasecmp(params.lattice.YBoundtype, "free") == 0)
+    params.lattice.YBound = &Potential::Free_Boundary; // CORREÇÃO: Namespace Potential
+  else if (strcasecmp(params.lattice.YBoundtype, "periodic") == 0)
+    params.lattice.YBound = &Potential::Periodic_Boundary; // CORREÇÃO: Namespace Potential
   else {
-    fprintf(stderr, "Y boundary condition: %s not implemented \n", params.YBoundtype);
+    // CORREÇÃO: Acesso a YBoundtype aninhado em 'lattice'
+    fprintf(stderr, "Y boundary condition: %s not implemented \n", params.lattice.YBoundtype);
     exit(2);
   }
 
-  if (strcasecmp(params.ZBoundtype, "free") == 0)
-    params.ZBound = &Free_Boundary;
-  else if (strcasecmp(params.ZBoundtype, "periodic") == 0)
-    params.ZBound = &Periodic_Boundary;
+  // Bloco de Definição de Condições de Fronteira (Z)
+  // CORREÇÃO: Acesso a ZBoundtype aninhado em 'lattice'
+  if (strcasecmp(params.lattice.ZBoundtype, "free") == 0)
+    params.lattice.ZBound = &Potential::Free_Boundary; // CORREÇÃO: Namespace Potential
+  else if (strcasecmp(params.lattice.ZBoundtype, "periodic") == 0)
+    params.lattice.ZBound = &Potential::Periodic_Boundary; // CORREÇÃO: Namespace Potential
   else {
-    fprintf(stderr, "Z boundary condition: %s not implemented \n", params.ZBoundtype);
+    // CORREÇÃO: Acesso a ZBoundtype aninhado em 'lattice'
+    fprintf(stderr, "Z boundary condition: %s not implemented \n", params.lattice.ZBoundtype);
     exit(2);
   }
-
+  
   evolve->geometry->Boundary_Init(&params);
   evolve->check_Points(pt, params);
   apply_Initial_Condidions(ni, pt, params);
 
-  if (strcasecmp(params.potential, "ll") * strcasecmp(params.potential, "lebwohl-lahser") == 0) {
-    evolve->geometry->bulk_potential = &Bulk_Energy_Lebwohl_Lasher;
+  // Bloco de Definição de Potencial (Com Correção Lógica de *)
+  // CORREÇÃO: Acesso a 'potential' e Correção Lógica de * para ||
+  if (strcasecmp(params.potential.potential, "ll") == 0 || strcasecmp(params.potential.potential, "lebwohl-lahser") == 0) {
+    evolve->geometry->bulk_potential = &Potential::Bulk_Energy_Lebwohl_Lasher;
     printf("Using lebwohl-lasher potential\n");
-  } else if (strcasecmp(params.potential, "ghrl") * strcasecmp(params.potential, "grun-hess") == 0) {
-    evolve->geometry->bulk_potential = &Bulk_Energy_GHRL;
-    setGHRL(params);
+    // CORREÇÃO: Acesso a 'potential' e Correção Lógica de * para ||
+  } else if (strcasecmp(params.potential.potential, "ghrl") == 0 || strcasecmp(params.potential.potential, "grun-hess") == 0) {
+    evolve->geometry->bulk_potential = &Potential::Bulk_Energy_GHRL;
+    // CORREÇÃO: Chamada de função do namespace IO
+    IO::setGHRL(params);
     printf("Using gruhn-hess potential\n");
-  } else if (strcasecmp(params.potential, "pear") == 0) {
-    evolve->geometry->bulk_potential = &Bulk_Energy_Selinger_Pear;
+  } else if (strcasecmp(params.potential.potential, "pear") == 0) {
+    evolve->geometry->bulk_potential = &Potential::Bulk_Energy_Selinger_Pear;
     printf("Using splay-bend potential\n");
   } else {
-    printf("%s potential not programed.\n Try lebwohl-lasher(LL), pear, BC or gruhn-hess(GHRL)", params.potential);
+    // CORREÇÃO: Acesso a 'potential'
+    printf("%s potential not programed.\n Try lebwohl-lasher(LL), pear, BC or gruhn-hess(GHRL)", params.potential.potential);
     exit(2);
   }
 }
@@ -107,9 +139,10 @@ int simulator::print_n(char *fname, Parameters *params) {
   }
   fprintf(output, "x,y,z,nx,ny,nz,s,pt\n");
 
-  for (int k = 0; k < params->Nz; k++) {
-    for (int j = 0; j < params->Ny; j++) {
-      for (int i = 0; i < params->Nx; i++) {
+  // CORREÇÃO: Acesso às dimensões da grade aninhadas em 'lattice'
+  for (int k = 0; k < params->lattice.Nz; k++) {
+    for (int j = 0; j < params->lattice.Ny; j++) {
+      for (int i = 0; i < params->lattice.Nx; i++) {
         fprintf(output, "%d,%d,%d,%g,%g,%g,1,%d\n", i, j, k,
                 nix(i, j, k), niy(i, j, k), niz(i, j, k), pti(i, j, k));
       }
