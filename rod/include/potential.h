@@ -7,12 +7,10 @@
 
 namespace Potential {
 
-    // FUNÇÃO COM PONTEIROS MISTOS (COMPATÍVEL COM CÓDIGOS LEGADOS)
     float Bulk_Energy_Selinger_BC(float nix, float niy, float niz, float bix, float biy, float biz, 
                                  float *ni, float *bi, int i, int j, int k, const Parameters& params, 
                                  int *pt, int[3], int nk = 1);
     
-    // FUNÇÕES MODERNAS (const nos ponteiros de leitura)
     float Bulk_Energy_Selinger_Pear(const float ni[3], const float nj[3], const Parameters* params, 
                                    const float rij[3], int nk = 1);
     
@@ -24,7 +22,6 @@ namespace Potential {
 
     float Electric_Potential(const float ni[3], const Parameters* params);
     
-    // FUNÇÕES COM PONTEIROS MISTOS
     float nPotential(float nix, float niy, float niz, float *ni, int i, int j, int k, 
                     const Parameters& params, int *pt, 
                     float bulk_pot(float nix, float niy, float niz, float *ni, int i, int j, int k, 
