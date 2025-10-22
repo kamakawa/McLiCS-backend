@@ -1,9 +1,10 @@
-//Alterei bastante esse arquivo, criei structs aninhadas para melhor organização dos parâmetros
+//Alterei bastante coisa nesse arquivo, criei structs aninhadas para melhor organização dos parâmetros
 //Mudança no acesso dos parâmetros: antes params->k11 agora params->ic.k11
+//Caso haja erro, rever essas mudanças e conferir se fez a alteração correta em todos os lugares com dependências aqui
 #ifndef PARAMETERS_H_
 #define PARAMETERS_H_
 
-#include <gsl/gsl_rng.h>  //geração de números aleatórios
+#include <gsl/gsl_rng.h>  
 #include <map>
 #include <string>
 

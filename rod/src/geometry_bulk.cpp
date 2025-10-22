@@ -27,9 +27,9 @@ Bulk_Geometry::Bulk_Geometry(int *pt, Parameters *params) : Geometry(params) {
 
   // CORREÇÃO 4, 5: Acesso a XBoundtype e XBound aninhados em 'lattice'
   if (strcasecmp(params->lattice.XBoundtype, "free") == 0)
-    params->lattice.XBound = Potential::Free_Boundary; // CORREÇÃO: Namespace Potential
+    params->lattice.XBound = &Potential::Free_Boundary; // CORREÇÃO: Namespace Potential
   else if (strcasecmp(params->lattice.XBoundtype, "periodic") == 0)
-    params->lattice.XBound = Potential::Periodic_Boundary; // CORREÇÃO: Namespace Potential
+    params->lattice.XBound = &Potential::Periodic_Boundary; // CORREÇÃO: Namespace Potential
   else {
     fprintf(stderr, "X boundary condition: %s not implemented \n", params->lattice.XBoundtype);
     exit(2);

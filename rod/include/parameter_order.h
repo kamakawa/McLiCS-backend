@@ -1,3 +1,4 @@
+//alterei, criei o namespace OrderParameters
 #ifndef PARAMETER_ORDER_H_
 #define PARAMETER_ORDER_H_
 #include <gsl/gsl_eigen.h>

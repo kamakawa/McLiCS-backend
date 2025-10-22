@@ -20,9 +20,6 @@ simulator::simulator(Parameters *params)
   this->params = params;
 }
 
-// O destrutor está implementado no .h para gerenciar a memória
-// simulator::~simulator() { }
-
 void simulator::Setup_simmulation(Parameters &params) {
 
   // CORREÇÃO: Acesso às dimensões da grade aninhadas em 'lattice'
@@ -30,8 +27,6 @@ void simulator::Setup_simmulation(Parameters &params) {
   ni = (float *)calloc(Nn, sizeof(float));
   pt = (int *)calloc(Nn, sizeof(int));
 
-  // Bloco de Definição de Evolução (CPU e GPU)
-  // CORREÇÃO: Acesso a 'evol' aninhado em 'mc'
   if (strcasecmp(params.mc.evol, "thermal") == 0) {
     evolve = new thermalEvolveN(ni, pt, &params);
   } else if (strcasecmp(params.mc.evol, "step") == 0) {
@@ -49,13 +44,11 @@ void simulator::Setup_simmulation(Parameters &params) {
   } else if (strcasecmp(params.mc.evol, "electricGPU") == 0) {
   //  evolve = new electricEvolveNGPU(ni, pt, &params);
   } else {
-    // CORREÇÃO: Acesso a 'evol' aninhado em 'mc'
+
     printf("Evolve %s not defined, try thermal or step\n", params.mc.evol);
     exit(2);
   }
 
-  // Bloco de Definição de Geometria
-  // CORREÇÃO: Acesso a 'geometry' aninhado em 'lattice'
   if (strcasecmp(params.lattice.geometry, "bulk") == 0) {
     evolve->geometry = new Bulk_Geometry(pt, &params);
   } else if (strcasecmp(params.lattice.geometry, "slab") == 0) {
@@ -70,8 +63,6 @@ void simulator::Setup_simmulation(Parameters &params) {
     exit(2);
   }
 
-  // Bloco de Definição de Condições de Fronteira (X)
-  // CORREÇÃO: Acesso a XBoundtype aninhado em 'lattice'
   if (strcasecmp(params.lattice.XBoundtype, "free") == 0)
     params.lattice.XBound = &Potential::Free_Boundary; // CORREÇÃO: Namespace Potential
   else if (strcasecmp(params.lattice.XBoundtype, "periodic") == 0)
@@ -82,8 +73,6 @@ void simulator::Setup_simmulation(Parameters &params) {
     exit(2);
   }
 
-  // Bloco de Definição de Condições de Fronteira (Y)
-  // CORREÇÃO: Acesso a YBoundtype aninhado em 'lattice'
   if (strcasecmp(params.lattice.YBoundtype, "free") == 0)
     params.lattice.YBound = &Potential::Free_Boundary; // CORREÇÃO: Namespace Potential
   else if (strcasecmp(params.lattice.YBoundtype, "periodic") == 0)
@@ -94,8 +83,6 @@ void simulator::Setup_simmulation(Parameters &params) {
     exit(2);
   }
 
-  // Bloco de Definição de Condições de Fronteira (Z)
-  // CORREÇÃO: Acesso a ZBoundtype aninhado em 'lattice'
   if (strcasecmp(params.lattice.ZBoundtype, "free") == 0)
     params.lattice.ZBound = &Potential::Free_Boundary; // CORREÇÃO: Namespace Potential
   else if (strcasecmp(params.lattice.ZBoundtype, "periodic") == 0)
@@ -110,8 +97,7 @@ void simulator::Setup_simmulation(Parameters &params) {
   evolve->check_Points(pt, params);
   apply_Initial_Condidions(ni, pt, params);
 
-  // Bloco de Definição de Potencial (Com Correção Lógica de *)
-  // CORREÇÃO: Acesso a 'potential' e Correção Lógica de * para ||
+
   if (strcasecmp(params.potential.potential, "ll") == 0 || strcasecmp(params.potential.potential, "lebwohl-lahser") == 0) {
     evolve->geometry->bulk_potential = &Potential::Bulk_Energy_Lebwohl_Lasher;
     printf("Using lebwohl-lasher potential\n");
