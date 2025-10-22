@@ -1,3 +1,6 @@
+//alterei
+//no código original havia muita repetição, com isso criei um namespace anônimo com funções auxiliares para evitar repetição de código.
+//alterações na estrutura, mas a lógica original foi mantida, ou seja, o resultado final não deve ser alterado.
 #include <gsl/gsl_rng.h>
 #include <math.h>
 #include <string.h>
@@ -10,84 +13,101 @@
 #include "../include/parameters.h"
 #include "../include/potential.h"
 
-// Construtor FG_Anchoring
-FG_Anchoring::FG_Anchoring(Parameters *params, int id) {
-  this->id = id;
-  // Asserting anchoring energy is set and getting its value:
-  printf("seting surface %d: %s\n", id, name);
-  this->params = params;
+namespace {
+    //Funções auxiliares para obter parâmetros e aplicar reescalonamento, todas encapsuladas em um namespace anônimo para evitar poluição do namespace global.
+    float getAnchoringW(Parameters* params, int id) {
+        try {
+            return params->surface.W.at(id);
+        } catch (std::out_of_range dummy_var) {
+            std::cerr << "Erro: Parâmetro W não encontrado para surface id " << id << std::endl;
+            throw std::runtime_error("Parâmetro W de anchoring não configurado");
+        }
+    }
+    
+    void applyNeighbourScaling(Parameters* params, float& W) {
+        if (params->neighbourhood.neighbourKind == 2) {
+            W *= 4;
+            std::cout << "W reescaled by 4 to " << W << " to acomodate the extra neighbours.\n";
+        }
+        if (params->neighbourhood.neighbourKind == 3) {
+            W *= 5;
+            std::cout << "W reescaled by 5 to " << W << " to acomodate the extra neighbours.\n";
+        }
+    }
+    
+    void applyNeighbourScalingGHRL(Parameters* params, float& W) {
+        if (params->neighbourhood.neighbourKind == 2) {
+            W *= 4;
+            std::cout << "W reescaled by 4 to " << W << " to acomodate the extra neighbours.\n";
+        }
+        if (params->neighbourhood.neighbourKind == 3) {
+            W *= 6;
+            std::cout << "W reescaled by 6 to " << W << " to acomodate the extra neighbours.\n";
+        }
+    }
 
-  try {
-    W = params->surface.W.at(id); // Alteração 1: Acesso ao W aninhado em 'surface'
+    struct GHRL_Constants {
+        float el, em, en, er, es;
+    };
+
+    GHRL_Constants getGHRLParams(Parameters* params) {
+        return {
+            params->potential.ghrl_lambda,
+            params->potential.ghrl_mu,
+            params->potential.ghrl_nu,
+            params->potential.ghrl_rho,
+            params->potential.ghrl_sigma
+        };
+    }
+}
+
+FG_Anchoring::FG_Anchoring(Parameters *params, int id) {
+    this->id = id;
+    this->params = params;
+    
+    printf("seting surface %d: %s\n", id, name);
+    this->W = getAnchoringW(params, id);
     std::cout << "W= " << W << ".\n";
-  } catch (std::out_of_range dummy_var) {
-    check_parameter(false, "W");
-  }
-  if (params->neighbourhood.neighbourKind == 2) { // Alteração 2: Acesso a neighbourKind
-    W *= 4;
-    std::cout << "W reescaled by 4 to " << W << " to acomodate the extra neighbours.\n";
-  }
-  if (params->neighbourhood.neighbourKind == 3) { // Alteração 3: Acesso a neighbourKind
-    W *= 5;
-    std::cout << "W reescaled by 4 to " << W << " to acomodate the extra neighbours.\n";
-  }
-  printf("\n");
+    
+    applyNeighbourScaling(params, this->W);
+    printf("\n");
 }
 
 float FG_Anchoring::surface_potential(float ni[3], float s[3]) {
-  static float toPi = M_PI / 180;
-
-  float nij = ni[0] * s[0] + ni[1] * s[1] + ni[2] * s[2];
-  return +W * nij * nij;
+    float nij = ni[0] * s[0] + ni[1] * s[1] + ni[2] * s[2];
+    return +W * nij * nij;
 }
 
-// Construtor FG_Anchoring_GHRL
 FG_Anchoring_GHRL::FG_Anchoring_GHRL(Parameters *params, int id) {
-  this->id = id;
-  this->params = params;
-  // Asserting anchoring energy is set and getting its value:
-  printf("seting surface %d: %s\n", id, name);
-  try {
-    W = params->surface.W.at(id); // Alteração 4: Acesso ao W aninhado em 'surface'
+    this->id = id;
+    this->params = params;
+    
+    printf("seting surface %d: %s\n", id, name);
+    this->W = getAnchoringW(params, id);
     std::cout << "W= " << W << ".\n";
-  } catch (std::out_of_range dummy_var) {
-    check_parameter(false, "W");
-  }
-  if (params->neighbourhood.neighbourKind == 2) { // Alteração 5: Acesso a neighbourKind
-    W *= 4;
-    std::cout << "W reescaled by 4 to " << W << " to acomodate the extra neighbours.\n";
-  }
-  if (params->neighbourhood.neighbourKind == 3) { // Alteração 6: Acesso a neighbourKind
-    W *= 6;
-    std::cout << "W reescaled by 4 to " << W << " to acomodate the extra neighbours.\n";
-  }
-  printf("\n");
+    
+    applyNeighbourScalingGHRL(params, this->W);
+    printf("\n");
 }
 
 float FG_Anchoring_GHRL::surface_potential(float ni[3], float s[3]) {
-  // Alteração 7: Acesso aos parâmetros GHRL aninhados em 'potential'
-  const float el = params->potential.ghrl_lambda; 
-  const float em = params->potential.ghrl_mu;
-  const float en = params->potential.ghrl_nu;
-  const float er = params->potential.ghrl_rho;
-  const float es = params->potential.ghrl_sigma;
-  
-  float v15 = 1.5;
-  float v05 = 0.5;
-  float mod = sqrtf(fabs(ni[0] * s[0] + ni[1] * s[1] + ni[2] * s[2]));
-  float nj[3] = {ni[0] - s[0] * mod, ni[1] - s[1] * mod, ni[2] - s[2] * mod};
-  mod = sqrtf(fabs(nj[0] * nj[0] + nj[1] * nj[1] + nj[2] * nj[2]));
-  nj[0] /= (mod > 0 ? mod : 1);
-  nj[1] /= (mod > 0 ? mod : 1);
-  nj[2] /= (mod > 0 ? mod : 1);
+    const GHRL_Constants p = getGHRLParams(params);
+    
+    float v15 = 1.5;
+    float v05 = 0.5;
+    float mod = sqrtf(fabs(ni[0] * s[0] + ni[1] * s[1] + ni[2] * s[2]));
+    float nj[3] = {ni[0] - s[0] * mod, ni[1] - s[1] * mod, ni[2] - s[2] * mod};
+    mod = sqrtf(fabs(nj[0] * nj[0] + nj[1] * nj[1] + nj[2] * nj[2]));
+    nj[0] /= (mod > 0 ? mod : 1);
+    nj[1] /= (mod > 0 ? mod : 1);
+    nj[2] /= (mod > 0 ? mod : 1);
 
-  float ai = ni[0] * s[0] + ni[1] * s[1] + ni[2] * s[2];
-  float aj = nj[0] * s[0] + nj[1] * s[1] + nj[2] * s[2];
-  float nij = ni[0] * nj[0] + ni[1] * nj[1] + ni[2] * nj[2];
-  float pij = v15 * nij * nij - v05;
-  float cross = (ni[2] * nj[1] - ni[1] * nj[2]) * s[0] + (ni[0] * nj[2] - ni[2] * nj[0]) * s[1] + (ni[1] * nj[0] - ni[0] * nj[1]) * s[2];
+    float ai = ni[0] * s[0] + ni[1] * s[1] + ni[2] * s[2];
+    float aj = nj[0] * s[0] + nj[1] * s[1] + nj[2] * s[2];
+    float nij = ni[0] * nj[0] + ni[1] * nj[1] + ni[2] * nj[2];
+    float pij = v15 * nij * nij - v05;
+    float cross = (ni[2] * nj[1] - ni[1] * nj[2]) * s[0] + (ni[0] * nj[2] - ni[2] * nj[0]) * s[1] + (ni[1] * nj[0] - ni[0] * nj[1]) * s[2];
 
-  float E1 = ((v15 * ai * ai) + (v15 * aj * aj) - 1);
-  //~ if (threadIdx.x==0)printf("%0.3f %0.3f %0.3f %0.3f %0.3f \n", ai, aj, cross, nij,(ai*aj*nij));
-  return W * ((E1 * (er * pij + el) + em * (ai * aj * nij) - (1 / 9)) + en * pij + es * (nij > 0 ? 1 : -1) * cross);
+    float E1 = ((v15 * ai * ai) + (v15 * aj * aj) - 1);
+    return W * ((E1 * (p.er * pij + p.el) + p.em * (ai * aj * nij) - (1 / 9)) + p.en * pij + p.es * (nij > 0 ? 1 : -1) * cross);
 }
