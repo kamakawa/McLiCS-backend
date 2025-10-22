@@ -110,4 +110,8 @@ float FG_Anchoring_GHRL::surface_potential(float ni[3], float s[3]) {
 
     float E1 = ((v15 * ai * ai) + (v15 * aj * aj) - 1);
     return W * ((E1 * (p.er * pij + p.el) + p.em * (ai * aj * nij) - (1 / 9)) + p.en * pij + p.es * (nij > 0 ? 1 : -1) * cross);
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 59baf041bb5ef07f8b110edf86980a2d5e9a3dd8
