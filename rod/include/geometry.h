@@ -25,7 +25,7 @@ namespace Potential {
 class Geometry {
  public:
    Geometry(Parameters *params) 
-      : Nx(params->lattice.Nx), Ny(params->lattice.Ny), Nz(params->lattice.Nz), // Inicialização explícita
+      : Nx(params->lattice.Nx), Ny(params->lattice.Ny), Nz(params->lattice.Nz), // Inicialização explícita, muito mais segura
         nSurfaces(0), surfaces(), bulk_potential(nullptr),
         ns(nullptr), params(params) {
   }

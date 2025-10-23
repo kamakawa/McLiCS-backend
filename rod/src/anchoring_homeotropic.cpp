@@ -21,7 +21,6 @@ namespace {
       } catch (std::out_of_range dummy_var) {
           std::cerr << "Erro: Parâmetro W não encontrado para surface id " << id << std::endl;
           throw std::runtime_error("Parâmetro W de anchoring não configurado");
-          // A chamada a check_parameter foi ELIMINADA.
       }
   }
     

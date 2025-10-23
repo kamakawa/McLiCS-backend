@@ -1,4 +1,5 @@
 //seria interessante transformar isso em um namespace, porém não tem esse arquivo .cpp
+
 #ifndef MONTE_CARLO_H_
 #define MONTE_CARLO_H_
 #include <gsl/gsl_rng.h>

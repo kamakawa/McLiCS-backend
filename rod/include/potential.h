@@ -1,3 +1,6 @@
+//Seguindo o princío da POO, transformei isso em um namespace
+//Por más que não envolve uma classe, segue a mesma idéia de encapsulamento e organização do código
+
 #ifndef POTENTIAL_H_
 #define POTENTIAL_H_
 #include <iostream>

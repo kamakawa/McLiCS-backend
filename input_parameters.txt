@@ -23,7 +23,7 @@ phi_0	0
 p0_i    10000000 
 #ic_file director_field_20.csv
 
-geometry custom #(bulk, slab, sphere, custom)
+geometry bulk #(bulk, slab, sphere, custom)
 boundary_file sep.csv 
 xbound periodic
 ybound free

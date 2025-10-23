@@ -1,3 +1,5 @@
+//Seguindo o princío da POO, transformei isso em um namespace
+//Por más que não envolve uma classe, segue a mesma idéia de encapsulamento e organização do código
 #ifndef IO_H_
 #define IO_H_
 #include "../include/define.h"
@@ -13,6 +15,7 @@ namespace IO {
     void print_parameters(Parameters params);
     void Setup_simmulation(float **ni, float **bi, float **ci, Parameters &params);
     void check_error_bits(std::ifstream *f, char *parser);
+
 }
 
 #endif

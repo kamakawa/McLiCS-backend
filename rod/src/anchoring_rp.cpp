@@ -16,24 +16,24 @@ RP_Anchoring::RP_Anchoring(Parameters *params, int id) {
   // Asserting anchoring energy is set and getting its value:
   printf("seting surface %d: %s\n", id, name);
   try {
-    W = params->surface.W.at(id); // Alteração 1: Acesso a W aninhado em 'surface'
+    W = params->surface.W.at(id); 
     std::cout << "W= " << W << ".\n";
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "W");
   }
   try {
-    phi_s = params->surface.phi_s.at(id); // Alteração 2: Acesso a phi_s aninhado em 'surface'
+    phi_s = params->surface.phi_s.at(id);
     std::cout << "phi_s= " << phi_s << ".\n";
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "phi_s");
   }
   try {
-    theta_s = params->surface.theta_s.at(id); // Alteração 3: Acesso a theta_s aninhado em 'surface'
+    theta_s = params->surface.theta_s.at(id); 
     std::cout << "theta_s= " << theta_s << ".\n";
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "theta_s");
   }
-  if (params->neighbourhood.neighbourKind == 2) { // Alteração 4: Acesso a neighbourKind
+  if (params->neighbourhood.neighbourKind == 2) { 
     W *= 4;
     std::cout << "W reescaled by 4 to " << W << " to acomodate the extra neighbours.\n";
   }
@@ -55,30 +55,30 @@ RP_Anchoring_GHRL::RP_Anchoring_GHRL(Parameters *params, int id) {
   // Asserting anchoring energy is set and getting its value:
   printf("seting surface %d: %s\n", id, name);
   try {
-    W = params->surface.W.at(id); // Alteração 5: Acesso a W aninhado em 'surface'
+    W = params->surface.W.at(id); 
     std::cout << "W= " << W << ".\n";
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "W");
   }
   try {
-    phi_s = params->surface.phi_s.at(id); // Alteração 6: Acesso a phi_s aninhado em 'surface'
+    phi_s = params->surface.phi_s.at(id); 
     std::cout << "phi_s= " << phi_s << ".\n";
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "phi_s");
   }
   try {
-    theta_s = params->surface.theta_s.at(id); // Alteração 7: Acesso a theta_s aninhado em 'surface'
+    theta_s = params->surface.theta_s.at(id); 
     std::cout << "theta_s= " << theta_s << ".\n";
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "theta_s");
   }
-  if (params->neighbourhood.neighbourKind == 2) { // Alteração 8: Acesso a neighbourKind
+  if (params->neighbourhood.neighbourKind == 2) { 
     W *= 4;
     std::cout << "W reescaled by 4 to " << W << " to acomodate the extra neighbours.\n";
   }
-  if (params->neighbourhood.neighbourKind == 3) { // Alteração 9: Acesso a neighbourKind
+  if (params->neighbourhood.neighbourKind == 3) { 
     W *= 5;
-    std::cout << "W reescaled by 4 to " << W << " to acomodate the extra neighbours.\n";
+    std::cout << "W reescaled by 5 to " << W << " to acomodate the extra neighbours.\n";
   }
   printf("\n");
 }
@@ -89,7 +89,6 @@ float RP_Anchoring_GHRL::surface_potential(float ni[3], float s[3]) {
                         sin(toPi * phi_s) * sin(toPi * theta_s),
                         cos(toPi * theta_s)};
   
-  // Alteração 10: Acesso aos parâmetros GHRL aninhados em 'potential'
   const float el = params->potential.ghrl_lambda;
   const float em = params->potential.ghrl_mu;
   const float en = params->potential.ghrl_nu;
