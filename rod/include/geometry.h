@@ -19,7 +19,7 @@ int Periodic_Boundary(int &ii, int NN);
 class Geometry {
  public:
    Geometry(Parameters *params) 
-      : Nx(params->Nx), Ny(params->Ny), Nz(params->Nz),  // ✅ CORRIGIDO
+      : Nx(params->Nx), Ny(params->Ny), Nz(params->Nz),  
         nSurfaces(0), bulk_potential(nullptr), params(params) {}
 
   int Nx, Ny, Nz;
