@@ -23,9 +23,9 @@ Custom_Geometry::Custom_Geometry(int *pt, Parameters *params) : Geometry(params)
 
   // Alteração 4, 5: Acesso a XBoundtype e XBound aninhados em 'lattice'
   if (strcasecmp(params->lattice.XBoundtype, "free") == 0)
-    params->lattice.XBound = &Potential::Free_Boundary; // Alteração 6: Chamada de função do namespace Potential
+    params->lattice.XBound = &Free_Boundary; // Alteração 6: Chamada de função do namespace Potential
   else if (strcasecmp(params->lattice.XBoundtype, "periodic") == 0)
-    params->lattice.XBound = &Potential::Periodic_Boundary; // Alteração 7: Chamada de função do namespace Potential
+    params->lattice.XBound = &Periodic_Boundary; // Alteração 7: Chamada de função do namespace Potential
   else {
     fprintf(stderr, "X boundary condition: %s not implemented \n", params->lattice.XBoundtype);
     exit(2);
@@ -33,9 +33,9 @@ Custom_Geometry::Custom_Geometry(int *pt, Parameters *params) : Geometry(params)
 
   // Alteração 8, 9: Acesso a YBoundtype e YBound aninhados em 'lattice'
   if (strcasecmp(params->lattice.YBoundtype, "free") == 0)
-    params->lattice.YBound = &Potential::Free_Boundary; // Alteração 10: Chamada de função do namespace Potential
+    params->lattice.YBound = &Free_Boundary; // Alteração 10: Chamada de função do namespace Potential
   else if (strcasecmp(params->lattice.YBoundtype, "periodic") == 0)
-    params->lattice.YBound = &Potential::Periodic_Boundary; // Alteração 11: Chamada de função do namespace Potential
+    params->lattice.YBound = &Periodic_Boundary; // Alteração 11: Chamada de função do namespace Potential
   else {
     fprintf(stderr, "Y boundary condition: %s not implemented \n", params->lattice.YBoundtype);
     exit(2);
@@ -43,9 +43,9 @@ Custom_Geometry::Custom_Geometry(int *pt, Parameters *params) : Geometry(params)
 
   // Alteração 12, 13: Acesso a ZBoundtype e ZBound aninhados em 'lattice'
   if (strcasecmp(params->lattice.ZBoundtype, "free") == 0)
-    params->lattice.ZBound = &Potential::Free_Boundary; // Alteração 14: Chamada de função do namespace Potential
+    params->lattice.ZBound = &Free_Boundary; // Alteração 14: Chamada de função do namespace Potential
   else if (strcasecmp(params->lattice.ZBoundtype, "periodic") == 0)
-    params->lattice.ZBound = &Potential::Periodic_Boundary; // Alteração 15: Chamada de função do namespace Potential
+    params->lattice.ZBound = &Periodic_Boundary; // Alteração 15: Chamada de função do namespace Potential
   else {
     fprintf(stderr, "Z boundary condition: %s not implemented \n", params->lattice.ZBoundtype);
     exit(2);

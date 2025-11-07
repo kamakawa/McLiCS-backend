@@ -12,10 +12,6 @@
 #include "../include/geometry.h"
 #include "../include/parameters.h"
 
-// Note: A linha 'using namespace Potential;' não é necessária se você usar 'Potential::',
-// mas garante que o compilador encontre as funções. No seu caso, vamos garantir que
-// todas as referências sigam a nova arquitetura de forma consistente.
-
 Bulk_Geometry::Bulk_Geometry(int *pt, Parameters *params) : Geometry(params) {
   printf("Geometry: Bulk\n");
   // CORREÇÃO 1, 2, 3: Acesso às dimensões da grade aninhadas em 'lattice'
@@ -25,11 +21,12 @@ Bulk_Geometry::Bulk_Geometry(int *pt, Parameters *params) : Geometry(params) {
   surfaces = std::vector<class Anchoring *>(nSurfaces);
   pt = set_point_type_normals(pt, params);
 
+  // CORREÇÃO DE ESCOPO: Funções de Boundary estão no escopo global (não em Potential::)
   // CORREÇÃO 4, 5: Acesso a XBoundtype e XBound aninhados em 'lattice'
   if (strcasecmp(params->lattice.XBoundtype, "free") == 0)
-    params->lattice.XBound = &Potential::Free_Boundary; // CORREÇÃO: Namespace Potential
+    params->lattice.XBound = &Free_Boundary; // CORREÇÃO: Removido Potential::
   else if (strcasecmp(params->lattice.XBoundtype, "periodic") == 0)
-    params->lattice.XBound = &Potential::Periodic_Boundary; // CORREÇÃO: Namespace Potential
+    params->lattice.XBound = &Periodic_Boundary; // CORREÇÃO: Removido Potential::
   else {
     fprintf(stderr, "X boundary condition: %s not implemented \n", params->lattice.XBoundtype);
     exit(2);
@@ -37,9 +34,9 @@ Bulk_Geometry::Bulk_Geometry(int *pt, Parameters *params) : Geometry(params) {
 
   // CORREÇÃO 6, 7: Acesso a YBoundtype e YBound aninhados em 'lattice'
   if (strcasecmp(params->lattice.YBoundtype, "free") == 0)
-    params->lattice.YBound = &Potential::Free_Boundary; // CORREÇÃO: Namespace Potential
+    params->lattice.YBound = &Free_Boundary; // CORREÇÃO: Removido Potential::
   else if (strcasecmp(params->lattice.YBoundtype, "periodic") == 0)
-    params->lattice.YBound = &Potential::Periodic_Boundary; // CORREÇÃO: Namespace Potential
+    params->lattice.YBound = &Periodic_Boundary; // CORREÇÃO: Removido Potential::
   else {
     fprintf(stderr, "Y boundary condition: %s not implemented \n", params->lattice.YBoundtype);
     exit(2);
@@ -47,9 +44,9 @@ Bulk_Geometry::Bulk_Geometry(int *pt, Parameters *params) : Geometry(params) {
 
   // CORREÇÃO 8, 9: Acesso a ZBoundtype e ZBound aninhados em 'lattice'
   if (strcasecmp(params->lattice.ZBoundtype, "free") == 0)
-    params->lattice.ZBound = &Potential::Free_Boundary; // CORREÇÃO: Namespace Potential
+    params->lattice.ZBound = &Free_Boundary; // CORREÇÃO: Removido Potential::
   else if (strcasecmp(params->lattice.ZBoundtype, "periodic") == 0)
-    params->lattice.ZBound = &Potential::Periodic_Boundary; // CORREÇÃO: Namespace Potential
+    params->lattice.ZBound = &Periodic_Boundary; // CORREÇÃO: Removido Potential::
   else {
     fprintf(stderr, "Z boundary condition: %s not implemented \n", params->lattice.ZBoundtype);
     exit(2);

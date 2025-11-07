@@ -1,7 +1,9 @@
-//Alterei bem pouco este arquivo, só complementei o destrutor da classe simulator, por segurança
-#include <gsl/gsl_rng.h>
+#ifndef SIMULATOR_H_
+#define SIMULATOR_H_
 
+#include <gsl/gsl_rng.h>
 #include <iostream>
+#include <memory>
 
 #include "../include/define.h"
 #include "../include/evolve.h"
@@ -18,26 +20,14 @@ class simulator {
   void Setup_simmulation(Parameters &params);
   int print_n(char *fname, Parameters *params);
   int Nx, Ny, Nz;
-  //~ virtual void Setup_simmulation(parameters &params){};
-  //~ virtual int Evol(gsl_rng * rng, parameters *params){return 0;};
-  Evolve *evolve;
-  int *pt;
   
-  ~simulator() {
-    if (evolve) {
-      delete evolve;
-      evolve = nullptr;
-    }
-    if (pt) {
-      delete[] pt;
-      pt = nullptr;
-    }
-    if (ni) {
-      delete[] ni;
-      ni = nullptr;
-    }
-  }
+  std::unique_ptr<Evolve> evolve;
+  std::unique_ptr<int[]> pt;
+  
+  ~simulator() = default;
 
  private:
-  float *ni;
+  std::unique_ptr<float[]> ni;
 };
+
+#endif

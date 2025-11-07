@@ -63,10 +63,11 @@ void simulator::Setup_simmulation(Parameters &params) {
     exit(2);
   }
 
+  // CORREÇÃO DE ESCOPO: Funções de Boundary estão no escopo global (não em Potential::)
   if (strcasecmp(params.lattice.XBoundtype, "free") == 0)
-    params.lattice.XBound = &Potential::Free_Boundary; // CORREÇÃO: Namespace Potential
+    params.lattice.XBound = &Free_Boundary; // CORREÇÃO: Removido Potential::
   else if (strcasecmp(params.lattice.XBoundtype, "periodic") == 0)
-    params.lattice.XBound = &Potential::Periodic_Boundary; // CORREÇÃO: Namespace Potential
+    params.lattice.XBound = &Periodic_Boundary; // CORREÇÃO: Removido Potential::
   else {
     // CORREÇÃO: Acesso a XBoundtype aninhado em 'lattice'
     fprintf(stderr, "X boundary condition: %s not implemented \n", params.lattice.XBoundtype);
@@ -74,9 +75,9 @@ void simulator::Setup_simmulation(Parameters &params) {
   }
 
   if (strcasecmp(params.lattice.YBoundtype, "free") == 0)
-    params.lattice.YBound = &Potential::Free_Boundary; // CORREÇÃO: Namespace Potential
+    params.lattice.YBound = &Free_Boundary; // CORREÇÃO: Removido Potential::
   else if (strcasecmp(params.lattice.YBoundtype, "periodic") == 0)
-    params.lattice.YBound = &Potential::Periodic_Boundary; // CORREÇÃO: Namespace Potential
+    params.lattice.YBound = &Periodic_Boundary; // CORREÇÃO: Removido Potential::
   else {
     // CORREÇÃO: Acesso a YBoundtype aninhado em 'lattice'
     fprintf(stderr, "Y boundary condition: %s not implemented \n", params.lattice.YBoundtype);
@@ -84,9 +85,9 @@ void simulator::Setup_simmulation(Parameters &params) {
   }
 
   if (strcasecmp(params.lattice.ZBoundtype, "free") == 0)
-    params.lattice.ZBound = &Potential::Free_Boundary; // CORREÇÃO: Namespace Potential
+    params.lattice.ZBound = &Free_Boundary; // CORREÇÃO: Removido Potential::
   else if (strcasecmp(params.lattice.ZBoundtype, "periodic") == 0)
-    params.lattice.ZBound = &Potential::Periodic_Boundary; // CORREÇÃO: Namespace Potential
+    params.lattice.ZBound = &Periodic_Boundary; // CORREÇÃO: Removido Potential::
   else {
     // CORREÇÃO: Acesso a ZBoundtype aninhado em 'lattice'
     fprintf(stderr, "Z boundary condition: %s not implemented \n", params.lattice.ZBoundtype);

@@ -52,26 +52,22 @@ def plot_thermodynamics(df):
     """
     Plota o Parâmetro de Ordem (S) e a Energia Média (E) em função da Temperatura (T).
     """
-    # Corrigido: temperatura em ordem crescente
     df = df.sort_values(by='T', ascending=True).reset_index(drop=True)
 
     fig, ax1 = plt.subplots(figsize=(10, 6))
     ax1.set_title("Validação Termodinâmica da Simulação de Monte Carlo", fontsize=14)
     ax1.set_xlabel("Temperatura (T)", fontsize=12)
 
-    # Parâmetro de Ordem (S)
     ax1.set_ylabel("Parâmetro de Ordem Médio (S)", color='blue', fontsize=12)
     ax1.plot(df['T'], df['S'], marker='o', linestyle='-', color='blue', label='S vs T')
     ax1.tick_params(axis='y', labelcolor='blue')
     ax1.grid(True, linestyle='--', alpha=0.6)
 
-    # Energia Média (E)
     ax2 = ax1.twinx()
     ax2.set_ylabel("Energia Média (E)", color='red', fontsize=12)
     ax2.plot(df['T'], df['E'], marker='s', linestyle='--', color='red', label='E vs T')
     ax2.tick_params(axis='y', labelcolor='red')
 
-    # Legendas combinadas
     lines_1, labels_1 = ax1.get_legend_handles_labels()
     lines_2, labels_2 = ax2.get_legend_handles_labels()
     ax1.legend(lines_1 + lines_2, labels_1 + labels_2, loc='best')

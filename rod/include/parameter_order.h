@@ -1,7 +1,3 @@
-//alterei, criei o namespace OrderParameters
-//Seguindo o princío da POO, transformei isso em um namespace
-//Por más que não envolve uma classe, segue a mesma idéia de encapsulamento e organização do código
-
 #ifndef PARAMETER_ORDER_H_
 #define PARAMETER_ORDER_H_
 #include <gsl/gsl_eigen.h>

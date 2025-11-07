@@ -1,21 +1,18 @@
-//sistema de condições iniciais para a simulação
-//Tenho que pensar em um jeito melhor de fazer isso, criando uma classe ou namespace
-//Bem trabalhoso
 #ifndef _IC_H_
 #define _IC_H_
-#include <gsl/gsl_eigen.h>
 
-#include <iostream>
+#include <gsl/gsl_eigen.h>
+#include <memory>
 
 #include "../include/define.h"
 #include "../include/parameter_order.h"
 #include "../include/parameters.h"
 
-void random_ic(float *ni, int *pt, Parameters params);
-void homogeneous_ic(float *ni, int *pt, Parameters params);
-void cholesteric_ic(float *ni, int *pt, Parameters params);
-void lhelix_ic(float *ni, int *pt, Parameters params);
-void read_ic_file(float *ni, int *pt, Parameters params);
-void apply_Initial_Condidions(float *ni, int *pt, Parameters params);
+void random_ic(std::unique_ptr<float[]>& ni, std::unique_ptr<int[]>& pt, Parameters& params);
+void homogeneous_ic(std::unique_ptr<float[]>& ni, std::unique_ptr<int[]>& pt, Parameters& params);
+void cholesteric_ic(std::unique_ptr<float[]>& ni, std::unique_ptr<int[]>& pt, Parameters& params);
+void lhelix_ic(std::unique_ptr<float[]>& ni, std::unique_ptr<int[]>& pt, Parameters& params);
+void read_ic_file(std::unique_ptr<float[]>& ni, std::unique_ptr<int[]>& pt, Parameters& params);
+void apply_Initial_Condidions(std::unique_ptr<float[]>& ni, std::unique_ptr<int[]>& pt, Parameters& params);
 
 #endif

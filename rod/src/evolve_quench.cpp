@@ -59,7 +59,7 @@ int quenchEvolveN::run() {
   for (int ii = params->mc.first_file; ii < params->mc.fn + params->mc.first_file; ii++) {
     
     // Alteração 12, 13: Acesso a T e Ti aninhados em 'potential'
-    params->potential.T = params->potential.Ti;
+   params->potential.T = params->potential.Ti;
     
     // Alteração 14: Acesso a MCT aninhado em 'mc'
     for (int step = 0; step < params->mc.MCT; step++) {
@@ -70,7 +70,7 @@ int quenchEvolveN::run() {
     params->potential.T = params->potential.Tf;
     
     // Alteração 16, 17: Acesso a MCT e dT aninhados em 'mc' e 'potential'
-    for (int step = 0; step < params->mc.MCT*params->potential.dT; step++) {
+    for (int step = 0; step < params->mc.MCT; step++) { 
       Monte_Carlo_Step(ang_var, rng);
     }
     S1 = 0;
