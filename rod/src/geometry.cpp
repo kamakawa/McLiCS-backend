@@ -6,20 +6,19 @@
 
 #include <iostream>
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
+#include <algorithm>
 
 #include "../include/anchoring.h"
 #include "../include/parameters.h"
 #include "../include/potential.h"
 
-  //Geometry::Geometry(Parameters *params) 
-  //    : Nx(params->lattice.Nx), Ny(params->lattice.Ny), Nz(params->lattice.Nz) {
-  //  this->params = params;
-  //};
+Geometry::Geometry(Parameters *params) : Nx(params->Nx), Ny(params->Ny), Nz(params->Nz) {
+  this->params = params;
+}
 
-// newman_neighbours não precisa de alterações na lógica interna, apenas a Bulk_potential (que não é diretamente acessada aqui, mas é um ponteiro).
-// A função bulk_potential será chamada corretamente pelo ponteiro de função, desde que o ponteiro tenha sido inicializado com a função correta.
 float Geometry::newman_neighbours(const nni fullni[]) {
   float rij[3];
   double E = 0;
@@ -75,197 +74,229 @@ float Geometry::newman_neighbours(const nni fullni[]) {
   return E;
 }
 
-// second_nerghbours não precisa de alterações na lógica interna
 float Geometry::second_nerghbours(const nni fullni[]) {
   float rij[3];
   double E = 0;
   float ni[3] = {fullni[0].x, fullni[0].y, fullni[0].z};
   const float isqrt2 = 0.707106781;
-  if (fullni[8].pt) {
-    float nj[3] = {fullni[8].x, fullni[8].y, fullni[8].z};
-    rij[0] = isqrt2;
-    rij[1] = isqrt2;
-    rij[2] = 0;
-    E += bulk_potential(ni, nj, params, rij, 2);
-  }
-  if (fullni[9].pt) {
-    float nj[3] = {fullni[9].x, fullni[9].y, fullni[9].z};
-    rij[0] = isqrt2;
-    rij[1] = -isqrt2;
-    rij[2] = 0;
-    E += bulk_potential(ni, nj, params, rij, 2);
-  }
-  if (fullni[10].pt) {
-    float nj[3] = {fullni[10].x, fullni[10].y, fullni[10].z};
-    rij[0] = isqrt2;
-    rij[1] = 0;
-    rij[2] = isqrt2;
-    E += bulk_potential(ni, nj, params, rij, 2);
-  }
-  if (fullni[11].pt) {
-    float nj[3] = {fullni[11].x, fullni[11].y, fullni[11].z};
-    rij[0] = isqrt2;
-    rij[1] = 0;
-    rij[2] = -isqrt2;
-    E += bulk_potential(ni, nj, params, rij, 2);
-  }
-  if (fullni[12].pt) {
-    float nj[3] = {fullni[12].x, fullni[12].y, fullni[12].z};
-    rij[0] = -isqrt2;
-    rij[1] = isqrt2;
-    rij[2] = 0;
-    E += bulk_potential(ni, nj, params, rij, 2);
-  }
-  if (fullni[13].pt) {
-    float nj[3] = {fullni[13].x, fullni[13].y, fullni[13].z};
-    rij[0] = -isqrt2;
-    rij[1] = -isqrt2;
-    rij[2] = 0;
-    E += bulk_potential(ni, nj, params, rij, 2);
-  }
-  if (fullni[14].pt) {
-    float nj[3] = {fullni[14].x, fullni[14].y, fullni[14].z};
-    rij[0] = -isqrt2;
-    rij[1] = 0;
-    rij[2] = isqrt2;
-    E += bulk_potential(ni, nj, params, rij, 2);
-  }
-  if (fullni[15].pt) {
-    float nj[3] = {fullni[15].x, fullni[15].y, fullni[15].z};
-    rij[0] = -isqrt2;
-    rij[1] = 0;
-    rij[2] = -isqrt2;
-    E += bulk_potential(ni, nj, params, rij, 2);
-  }
-  if (fullni[16].pt) {
-    float nj[3] = {fullni[16].x, fullni[16].y, fullni[16].z};
-    rij[0] = 0;
-    rij[1] = isqrt2;
-    rij[2] = isqrt2;
-    E += bulk_potential(ni, nj, params, rij, 2);
-  }
-  if (fullni[17].pt) {
-    float nj[3] = {fullni[17].x, fullni[17].y, fullni[17].z};
-    rij[0] = 0;
-    rij[1] = isqrt2;
-    rij[2] = -isqrt2;
-    E += bulk_potential(ni, nj, params, rij, 2);
-  }
-  if (fullni[18].pt) {
-    float nj[3] = {fullni[18].x, fullni[18].y, fullni[18].z};
-    rij[0] = 0;
-    rij[1] = -isqrt2;
-    rij[2] = isqrt2;
-    E += bulk_potential(ni, nj, params, rij, 2);
-  }
-  if (fullni[19].pt) {
-    float nj[3] = {fullni[19].x, fullni[19].y, fullni[19].z};
-    rij[0] = 0;
-    rij[1] = -isqrt2;
-    rij[2] = -isqrt2;
-    E += bulk_potential(ni, nj, params, rij, 2);
+  
+  for (int neighbor = 8; neighbor <= 19; neighbor++) {
+    if (fullni[neighbor].pt) {
+      float nj[3] = {fullni[neighbor].x, fullni[neighbor].y, fullni[neighbor].z};
+      
+      switch(neighbor) {
+        case 8:  rij[0] = isqrt2; rij[1] = isqrt2; rij[2] = 0; break;
+        case 9:  rij[0] = isqrt2; rij[1] = -isqrt2; rij[2] = 0; break;
+        case 10: rij[0] = isqrt2; rij[1] = 0; rij[2] = isqrt2; break;
+        case 11: rij[0] = isqrt2; rij[1] = 0; rij[2] = -isqrt2; break;
+        case 12: rij[0] = -isqrt2; rij[1] = isqrt2; rij[2] = 0; break;
+        case 13: rij[0] = -isqrt2; rij[1] = -isqrt2; rij[2] = 0; break;
+        case 14: rij[0] = -isqrt2; rij[1] = 0; rij[2] = isqrt2; break;
+        case 15: rij[0] = -isqrt2; rij[1] = 0; rij[2] = -isqrt2; break;
+        case 16: rij[0] = 0; rij[1] = isqrt2; rij[2] = isqrt2; break;
+        case 17: rij[0] = 0; rij[1] = isqrt2; rij[2] = -isqrt2; break;
+        case 18: rij[0] = 0; rij[1] = -isqrt2; rij[2] = isqrt2; break;
+        case 19: rij[0] = 0; rij[1] = -isqrt2; rij[2] = -isqrt2; break;
+      }
+      
+      E += bulk_potential(ni, nj, params, rij, 2);
+    }
   }
   return E;
 }
 
-// third_nerghbours não precisa de alterações na lógica interna
 float Geometry::third_nerghbours(const nni fullni[]) {
   float rij[3];
   double E = 0;
   float ni[3] = {fullni[0].x, fullni[0].y, fullni[0].z};
-
   const float isqrt3 = 0.577350269;
-  if (fullni[20].pt) {
-    float nj[3] = {fullni[20].x, fullni[20].y, fullni[20].z};
-    rij[0] = isqrt3;
-    rij[1] = isqrt3;
-    rij[2] = isqrt3;
-    E += bulk_potential(ni, nj, params, rij, 3);
-  }
-  if (fullni[21].pt) {
-    float nj[3] = {fullni[21].x, fullni[21].y, fullni[21].z};
-    rij[0] = isqrt3;
-    rij[1] = isqrt3;
-    rij[2] = -isqrt3;
-    E += bulk_potential(ni, nj, params, rij, 3);
-  }
-  if (fullni[22].pt) {
-    float nj[3] = {fullni[22].x, fullni[22].y, fullni[22].z};
-    rij[0] = isqrt3;
-    rij[1] = -isqrt3;
-    rij[2] = isqrt3;
-    E += bulk_potential(ni, nj, params, rij, 3);
-  }
-  if (fullni[23].pt) {
-    float nj[3] = {fullni[23].x, fullni[23].y, fullni[23].z};
-    rij[0] = isqrt3;
-    rij[1] = -isqrt3;
-    rij[2] = -isqrt3;
-    E += bulk_potential(ni, nj, params, rij, 3);
-  }
-  if (fullni[24].pt) {
-    float nj[3] = {fullni[24].x, fullni[24].y, fullni[24].z};
-    rij[0] = -isqrt3;
-    rij[1] = isqrt3;
-    rij[2] = isqrt3;
-    E += bulk_potential(ni, nj, params, rij, 3);
-  }
-  if (fullni[25].pt) {
-    float nj[3] = {fullni[25].x, fullni[25].y, fullni[25].z};
-    rij[0] = -isqrt3;
-    rij[1] = isqrt3;
-    rij[2] = -isqrt3;
-    E += bulk_potential(ni, nj, params, rij, 3);
-  }
-  if (fullni[26].pt) {
-    float nj[3] = {fullni[26].x, fullni[26].y, fullni[26].z};
-    rij[0] = -isqrt3;
-    rij[1] = -isqrt3;
-    rij[2] = isqrt3;
-    E += bulk_potential(ni, nj, params, rij, 3);
-  }
-  if (fullni[27].pt) {
-    float nj[3] = {fullni[27].x, fullni[27].y, fullni[27].z};
-    rij[0] = -isqrt3;
-    rij[1] = -isqrt3;
-    rij[2] = -isqrt3;
-    E += bulk_potential(ni, nj, params, rij, 3);
+  
+  for (int neighbor = 20; neighbor <= 27; neighbor++) {
+    if (fullni[neighbor].pt) {
+      float nj[3] = {fullni[neighbor].x, fullni[neighbor].y, fullni[neighbor].z};
+      
+      switch(neighbor) {
+        case 20: rij[0] = isqrt3; rij[1] = isqrt3; rij[2] = isqrt3; break;
+        case 21: rij[0] = isqrt3; rij[1] = isqrt3; rij[2] = -isqrt3; break;
+        case 22: rij[0] = isqrt3; rij[1] = -isqrt3; rij[2] = isqrt3; break;
+        case 23: rij[0] = isqrt3; rij[1] = -isqrt3; rij[2] = -isqrt3; break;
+        case 24: rij[0] = -isqrt3; rij[1] = isqrt3; rij[2] = isqrt3; break;
+        case 25: rij[0] = -isqrt3; rij[1] = isqrt3; rij[2] = -isqrt3; break;
+        case 26: rij[0] = -isqrt3; rij[1] = -isqrt3; rij[2] = isqrt3; break;
+        case 27: rij[0] = -isqrt3; rij[1] = -isqrt3; rij[2] = -isqrt3; break;
+      }
+      
+      E += bulk_potential(ni, nj, params, rij, 3);
+    }
   }
   return E;
 }
 
-// Alteração 4: Assinatura da função Boundary_Init (adicionando const&)
 void Geometry::Boundary_Init(Parameters *params) {
   std::string anchoring;
-  // Alteração 5: Acesso a anchoring_type aninhado em 'surface'
   for (int ii = 0; ii < nSurfaces; ii++) {
     try {
-      anchoring = params->surface.anchoring_type.at(ii);
+      anchoring = params->anchoring_type.at(ii);
     } catch (std::out_of_range dummy_var) {
       std::cout << "You must define " << nSurfaces << " boundaries.\nPlease review your input file.\nAborting the program.\n\n";
       exit(0);
     }
-    // As chamadas new RP_Anchoring, new FG_Anchoring, etc. já usam o ponteiro 'params'
-    // O construtor delas (que você já corrigiu) vai cuidar do acesso aninhado.
+    
     if (strcasecmp(anchoring.c_str(), "rp") == 0)
-      surfaces.at(ii) = new RP_Anchoring(params, ii);
+      surfaces.push_back(std::make_unique<RP_Anchoring>(params, ii));
     else if (strcasecmp(anchoring.c_str(), "fg") == 0)
-      surfaces.at(ii) = new FG_Anchoring(params, ii);
+      surfaces.push_back(std::make_unique<FG_Anchoring>(params, ii));
     else if (strcasecmp(anchoring.c_str(), "homeotropic") == 0)
-      surfaces.at(ii) = new Homeotropic_Anchoring(params, ii);
+      surfaces.push_back(std::make_unique<Homeotropic_Anchoring>(params, ii));
     else if (strcasecmp(anchoring.c_str(), "strong") == 0)
-      surfaces.at(ii) = new Strong_Anchoring(params, ii);
+      surfaces.push_back(std::make_unique<Strong_Anchoring>(params, ii));
     else if (strcasecmp(anchoring.c_str(), "rp_ghrl") == 0)
-      surfaces.at(ii) = new RP_Anchoring_GHRL(params, ii);
+      surfaces.push_back(std::make_unique<RP_Anchoring_GHRL>(params, ii));
     else if (strcasecmp(anchoring.c_str(), "fg_ghrl") == 0)
-      surfaces.at(ii) = new FG_Anchoring_GHRL(params, ii);
+      surfaces.push_back(std::make_unique<FG_Anchoring_GHRL>(params, ii));
     else if (strcasecmp(anchoring.c_str(), "homeotropic_ghrl") == 0)
-      surfaces.at(ii) = new Homeotropic_Anchoring_GHRL(params, ii);
+      surfaces.push_back(std::make_unique<Homeotropic_Anchoring_GHRL>(params, ii));
     else if (strcasecmp(anchoring.c_str(), "strong_ghrl") == 0)
-      surfaces.at(ii) = new Strong_Anchoring_GHRL(params, ii);
+      surfaces.push_back(std::make_unique<Strong_Anchoring_GHRL>(params, ii));
     else {
       printf("%s boundary condition is not defined\n", anchoring.c_str());
       exit(2);
     }
   }
-};
+}
+
+
+Bulk_Geometry::Bulk_Geometry(int *pt, Parameters *params) : Geometry(params) {
+  set_point_type_normals(pt, params);
+}
+
+int* Bulk_Geometry::set_point_type_normals(int *pt, Parameters *params) {
+  int total_size = params->Nx * params->Ny * params->Nz;
+  for (int i = 0; i < total_size; i++) {
+    pt[i] = 0; 
+  }
+  return pt;
+}
+
+float Bulk_Geometry::lattice_Potential(const nni ni[7]) {
+  return newman_neighbours(ni);
+}
+
+Slab_Geometry::Slab_Geometry(int *pt, Parameters *params) : Geometry(params) {
+  set_point_type_normals(pt, params);
+}
+
+int* Slab_Geometry::set_point_type_normals(int *pt, Parameters *params) {
+  int total_size = params->Nx * params->Ny * params->Nz;
+  
+  for (int k = 0; k < params->Nz; k++) {
+    for (int j = 0; j < params->Ny; j++) {
+      for (int i = 0; i < params->Nx; i++) {
+        int idx = i + j * params->Nx + k * params->Nx * params->Ny;
+        
+        if (k == 0 || k == params->Nz - 1) {
+          pt[idx] = 1; 
+        } else {
+          pt[idx] = 0; 
+        }
+      }
+    }
+  }
+  return pt;
+}
+
+float Slab_Geometry::lattice_Potential(const nni ni[7]) {
+  float energy = newman_neighbours(ni);
+  
+  if (ni[0].pt == 1) {
+    for (auto& surface : surfaces) {
+      float s[3] = {0, 0, 1}; 
+      float ni_vec[3] = {ni[0].x, ni[0].y, ni[0].z};
+      energy += surface->surface_potential(ni_vec, s);
+    }
+  }
+  
+  return energy;
+}
+
+Sphere_Geometry::Sphere_Geometry(int *pt, Parameters *params) : Geometry(params) {
+  set_point_type_normals(pt, params);
+}
+
+int* Sphere_Geometry::set_point_type_normals(int *pt, Parameters *params) {
+  int total_size = params->Nx * params->Ny * params->Nz;
+  float center_x = params->Nx / 2.0f;
+  float center_y = params->Ny / 2.0f; 
+  float center_z = params->Nz / 2.0f;
+  float radius = std::min({center_x, center_y, center_z}) - 1;
+  
+  for (int k = 0; k < params->Nz; k++) {
+    for (int j = 0; j < params->Ny; j++) {
+      for (int i = 0; i < params->Nx; i++) {
+        int idx = i + j * params->Nx + k * params->Nx * params->Ny;
+        float dx = i - center_x;
+        float dy = j - center_y;
+        float dz = k - center_z;
+        float dist = std::sqrt(dx*dx + dy*dy + dz*dz);
+        
+        if (std::abs(dist - radius) < 1.0f) {
+          pt[idx] = 1; 
+        } else if (dist < radius) {
+          pt[idx] = 0; 
+        } else {
+          pt[idx] = -1; 
+        }
+      }
+    }
+  }
+  return pt;
+}
+
+float Sphere_Geometry::lattice_Potential(const nni ni[7]) {
+  float energy = newman_neighbours(ni);
+  
+  if (ni[0].pt == 1) { 
+    float s[3] = {0, 0, 1}; 
+    float ni_vec[3] = {ni[0].x, ni[0].y, ni[0].z};
+    
+    for (auto& surface : surfaces) {
+      energy += surface->surface_potential(ni_vec, s);
+    }
+  }
+  
+  return energy;
+}
+
+Custom_Geometry::Custom_Geometry(int *pt, Parameters *params) : Geometry(params) {
+  set_point_type_normals(pt, params);
+}
+
+int* Custom_Geometry::set_point_type_normals(int *pt, Parameters *params) {
+  int total_size = params->Nx * params->Ny * params->Nz;
+  
+  for (int i = 0; i < total_size; i++) {
+    pt[i] = 0; 
+  }
+  
+  return pt;
+}
+
+float Custom_Geometry::lattice_Potential(const nni ni[7]) {
+  float energy = 0.0f;
+  
+  switch(params->neighbourKind) {
+    case 1:
+      energy = newman_neighbours(ni);
+      break;
+    case 2:
+      energy = newman_neighbours(ni) + second_nerghbours(ni);
+      break;
+    case 3:
+      energy = newman_neighbours(ni) + second_nerghbours(ni) + third_nerghbours(ni);
+      break;
+    default:
+      energy = newman_neighbours(ni);
+  }
+  
+  return energy;
+}

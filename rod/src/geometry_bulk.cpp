@@ -1,88 +1,86 @@
 #include <gsl/gsl_rng.h>
 #include <math.h>
 #include <string.h>
+#include <memory>
 
 #include <iostream>
 #include <map>
 #include <string>
 #include <vector>
 
-#include "../include/potential.h" 
 #include "../include/anchoring.h"
 #include "../include/geometry.h"
 #include "../include/parameters.h"
+#include "../include/potential.h"
 
 Bulk_Geometry::Bulk_Geometry(int *pt, Parameters *params) : Geometry(params) {
   printf("Geometry: Bulk\n");
-  // CORREÇÃO 1, 2, 3: Acesso às dimensões da grade aninhadas em 'lattice'
-  ns = (float *)calloc(params->lattice.Nx * params->lattice.Ny * params->lattice.Nz * 3, sizeof(float));
+  
+  ns = std::make_unique<float[]>(Nx * Ny * Nz * 3);
+  
+  for (int i = 0; i < Nx * Ny * Nz * 3; i++) {
+    ns[i] = 0.0f;
+  }
 
   nSurfaces = 0;
-  surfaces = std::vector<class Anchoring *>(nSurfaces);
+  surfaces.clear(); 
+
   pt = set_point_type_normals(pt, params);
 
-  // CORREÇÃO DE ESCOPO: Funções de Boundary estão no escopo global (não em Potential::)
-  // CORREÇÃO 4, 5: Acesso a XBoundtype e XBound aninhados em 'lattice'
-  if (strcasecmp(params->lattice.XBoundtype, "free") == 0)
-    params->lattice.XBound = &Free_Boundary; // CORREÇÃO: Removido Potential::
-  else if (strcasecmp(params->lattice.XBoundtype, "periodic") == 0)
-    params->lattice.XBound = &Periodic_Boundary; // CORREÇÃO: Removido Potential::
+  if (params->XBoundtype == "free")
+    params->XBound = &Free_Boundary;
+  else if (params->XBoundtype == "periodic")
+    params->XBound = &Periodic_Boundary;
   else {
-    fprintf(stderr, "X boundary condition: %s not implemented \n", params->lattice.XBoundtype);
+    fprintf(stderr, "X boundary condition: %s not implemented \n", params->XBoundtype.c_str());
     exit(2);
   }
 
-  // CORREÇÃO 6, 7: Acesso a YBoundtype e YBound aninhados em 'lattice'
-  if (strcasecmp(params->lattice.YBoundtype, "free") == 0)
-    params->lattice.YBound = &Free_Boundary; // CORREÇÃO: Removido Potential::
-  else if (strcasecmp(params->lattice.YBoundtype, "periodic") == 0)
-    params->lattice.YBound = &Periodic_Boundary; // CORREÇÃO: Removido Potential::
+  if (params->YBoundtype == "free")
+    params->YBound = &Free_Boundary;
+  else if (params->YBoundtype == "periodic")
+    params->YBound = &Periodic_Boundary;
   else {
-    fprintf(stderr, "Y boundary condition: %s not implemented \n", params->lattice.YBoundtype);
+    fprintf(stderr, "Y boundary condition: %s not implemented \n", params->YBoundtype.c_str());
     exit(2);
   }
 
-  // CORREÇÃO 8, 9: Acesso a ZBoundtype e ZBound aninhados em 'lattice'
-  if (strcasecmp(params->lattice.ZBoundtype, "free") == 0)
-    params->lattice.ZBound = &Free_Boundary; // CORREÇÃO: Removido Potential::
-  else if (strcasecmp(params->lattice.ZBoundtype, "periodic") == 0)
-    params->lattice.ZBound = &Periodic_Boundary; // CORREÇÃO: Removido Potential::
+  if (params->ZBoundtype == "free")
+    params->ZBound = &Free_Boundary;
+  else if (params->ZBoundtype == "periodic")
+    params->ZBound = &Periodic_Boundary;
   else {
-    fprintf(stderr, "Z boundary condition: %s not implemented \n", params->lattice.ZBoundtype);
+    fprintf(stderr, "Z boundary condition: %s not implemented \n", params->ZBoundtype.c_str());
     exit(2);
   }
 
-  // CORREÇÃO 10, 11, 12: Acesso aos Boundarytypes aninhados em 'lattice'
-  printf("xbound  %s\n", params->lattice.XBoundtype);
-  printf("ybound  %s\n", params->lattice.YBoundtype);
-  printf("zbound  %s\n", params->lattice.ZBoundtype);
+  printf("xbound  %s\n", params->XBoundtype.c_str());
+  printf("ybound  %s\n", params->YBoundtype.c_str());
+  printf("zbound  %s\n", params->ZBoundtype.c_str());
   printf("\n");
 }
 
 int *Bulk_Geometry::set_point_type_normals(int *pt, Parameters *params) {
-  // CORREÇÃO 13: Acesso às dimensões da grade aninhadas em 'lattice'
-  for (int ii = 0; ii < params->lattice.Nx * params->lattice.Ny * params->lattice.Nz; ii++) pt[ii] = 1;
+  for (int ii = 0; ii < Nx * Ny * Nz; ii++) 
+    pt[ii] = 0; 
 
   return pt;
 }
 
-float Bulk_Geometry::latice_Potential(const nni fullni[7]) {
+float Bulk_Geometry::lattice_Potential(const nni fullni[7]) {
   float rij[3];
   float E = 0;
   float ni[3] = {fullni[0].x, fullni[0].y, fullni[0].z};
+  
   E = Geometry::newman_neighbours(fullni);
   
-  // CORREÇÃO 14: Acesso a neighbourKind aninhado em 'neighbourhood'
-  if (params->neighbourhood.neighbourKind > 1)
+  if (params->neighbourKind > 1)
     E += Geometry::second_nerghbours(fullni);
-    
-  // CORREÇÃO 15: Acesso a neighbourKind aninhado em 'neighbourhood'
-  if (params->neighbourhood.neighbourKind == 3)
+  if (params->neighbourKind == 3)
     E += Geometry::third_nerghbours(fullni);
-    
-  // CORREÇÃO 16, 17: Acesso a elecA aninhado em 'electric' e Namespace Potential
-  if (params->electric.elecA!=0) 
-    E+=Potential::Electric_Potential(ni,params);
+  
+  if (params->elecA != 0) 
+    E += Potential::Electric_Potential(ni, *params);
 
   return E;
 }
