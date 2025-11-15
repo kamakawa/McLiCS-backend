@@ -1,10 +1,5 @@
 #include <gsl/gsl_rng.h>
 #include <string.h>
-#include <memory>
-#include <algorithm>
-#include <cstdio>
-#include <string>
-
 #include <iostream>
 
 #include "../include/define.h"
@@ -17,112 +12,113 @@
 #include "../include/potential.h"
 #include "../include/simulator.h"
 
-extern int Free_Boundary(int &ii, int NN);
-extern int Periodic_Boundary(int &ii, int NN);
-
-namespace PotentialWrapper {
-    float Bulk_Energy_Lebwohl_Lasher_Wrapper(float ni[3], float nj[3], Parameters *params, float rij[3], int nk) {
-        return Potential::Bulk_Energy_Lebwohl_Lasher(ni, nj, *params, rij, nk);
-    }
-    float Bulk_Energy_GHRL_Wrapper(float ni[3], float nj[3], Parameters *params, float rij[3], int nk) {
-        return Potential::Bulk_Energy_GHRL(ni, nj, *params, rij, nk);
-    }
-    float Bulk_Energy_Selinger_Pear_Wrapper(float ni[3], float nj[3], Parameters *params, float rij[3], int nk) {
-        return Potential::Bulk_Energy_Selinger_Pear(ni, nj, *params, rij, nk);
-    }
-}
-
 simulator::simulator(Parameters *params) : Nx(params->Nx), Ny(params->Ny), Nz(params->Nz) {
   this->params = params;
 }
 
+simulator::~simulator() {
+  // CORREÇÃO: Liberar memória alocada no construtor
+  if (ni != nullptr) {
+    free(ni);
+    ni = nullptr;
+  }
+  if (pt != nullptr) {
+    free(pt);
+    pt = nullptr;
+  }
+  // CORREÇÃO: Liberar objeto evolve se existir
+  if (evolve != nullptr) {
+    delete evolve;
+    evolve = nullptr;
+  }
+}
+
 void simulator::Setup_simmulation(Parameters &params) {
-  int Nn = params.Nx * params.Ny * params.Nz;
-  int Nn3 = 3 * Nn;
-  
-  ni = std::make_unique<float[]>(Nn3); 
-  pt = std::make_unique<int[]>(Nn);    
-  
-  std::fill(ni.get(), ni.get() + Nn3, 0.0f);
-  std::fill(pt.get(), pt.get() + Nn, 0);
-  
-  float *ni_raw = ni.get();
-  int *pt_raw = pt.get();
+  int Nn = 3 * params.Nx * params.Ny * params.Nz;
+  ni = (float *)calloc(Nn, sizeof(float));
+  pt = (int *)calloc(Nn, sizeof(int));
 
-  if (params.evol == "thermal") {
-    evolve = std::make_unique<thermalEvolveN>(ni_raw, pt_raw, &params, this);
-  } else if (params.evol == "step") {
-    evolve = std::make_unique<stepEvolveN>(ni_raw, pt_raw, &params, this);
-  } else if (params.evol == "quench") {
-    evolve = std::make_unique<quenchEvolveN>(ni_raw, pt_raw, &params, this);
-  } else if (params.evol == "electric") {
-    evolve = std::make_unique<electricEvolveN>(ni_raw, pt_raw, &params, this);
+  // Configuração do tipo de evolução
+  if (strcasecmp(params.evol, "thermal") == 0) {
+    evolve = new thermalEvolveN(ni, pt, &params);
+  } else if (strcasecmp(params.evol, "step") == 0) {
+    evolve = new stepEvolveN(ni, pt, &params);
+  } else if (strcasecmp(params.evol, "quench") == 0) {
+    evolve = new quenchEvolveN(ni, pt, &params);
+  } else if (strcasecmp(params.evol, "electric") == 0) {
+    evolve = new electricEvolveN(ni, pt, &params);
   } else {
-    printf("Evolve %s not defined, try thermal or step\n", params.evol.c_str());
+    printf("Evolve %s not defined, try thermal or step\n", params.evol);
     exit(2);
   }
 
-  if (params.geometry == "bulk") {
-    evolve->geometry = new Bulk_Geometry(pt_raw, &params);
-  } else if (params.geometry == "slab") {
-    evolve->geometry = new Slab_Geometry(pt_raw, &params);
-  } else if (params.geometry == "sphere") {
-    evolve->geometry = new Sphere_Geometry(pt_raw, &params);
-  } else if (params.geometry == "custom") {
-    evolve->geometry = new Custom_Geometry(pt_raw, &params);
+  // Configuração da geometria
+  if (strcasecmp(params.geometry, "bulk") == 0) {
+    evolve->geometry = new Bulk_Geometry(pt, &params);
+  } else if (strcasecmp(params.geometry, "slab") == 0) {
+    evolve->geometry = new Slab_Geometry(pt, &params);
+  } else if (strcasecmp(params.geometry, "sphere") == 0) {
+    evolve->geometry = new Sphere_Geometry(pt, &params);
+  } else if (strcasecmp(params.geometry, "custom") == 0) {
+    evolve->geometry = new Custom_Geometry(pt, &params);
   } else {
-    fprintf(stderr, "Geometry %s not defined\n", params.geometry.c_str());
+    fprintf(stderr, "Geometry %s not defined\n", params.geometry);
     exit(2);
   }
 
-  if (params.XBoundtype == "free")
+  // Configuração das condições de contorno X
+  if (strcasecmp(params.XBoundtype, "free") == 0) {
     params.XBound = &Free_Boundary;
-  else if (params.XBoundtype == "periodic")
+  } else if (strcasecmp(params.XBoundtype, "periodic") == 0) {
     params.XBound = &Periodic_Boundary;
-  else {
-    fprintf(stderr, "X boundary condition: %s not implemented \n", params.XBoundtype.c_str());
+  } else {
+    fprintf(stderr, "X boundary condition: %s not implemented \n", params.XBoundtype);
     exit(2);
   }
 
-  if (params.YBoundtype == "free")
+  // Configuração das condições de contorno Y
+  if (strcasecmp(params.YBoundtype, "free") == 0) {
     params.YBound = &Free_Boundary;
-  else if (params.YBoundtype == "periodic")
+  } else if (strcasecmp(params.YBoundtype, "periodic") == 0) {
     params.YBound = &Periodic_Boundary;
-  else {
-    fprintf(stderr, "Y boundary condition: %s not implemented \n", params.YBoundtype.c_str());
+  } else {
+    fprintf(stderr, "Y boundary condition: %s not implemented \n", params.YBoundtype);
     exit(2);
   }
 
-  if (params.ZBoundtype == "free")
+  // Configuração das condições de contorno Z
+  if (strcasecmp(params.ZBoundtype, "free") == 0) {
     params.ZBound = &Free_Boundary;
-  else if (params.ZBoundtype == "periodic")
+  } else if (strcasecmp(params.ZBoundtype, "periodic") == 0) {
     params.ZBound = &Periodic_Boundary;
-  else {
-    fprintf(stderr, "Z boundary condition: %s not implemented \n", params.ZBoundtype.c_str());
+  } else {
+    fprintf(stderr, "Z boundary condition: %s not implemented \n", params.ZBoundtype);
     exit(2);
   }
 
+  // Inicialização final
   evolve->geometry->Boundary_Init(&params);
-  evolve->check_Points(pt_raw, params);
-  
+  evolve->check_Points(pt, params);
   apply_Initial_Condidions(ni, pt, params);
 
-  if (params.potential == "ll" || params.potential == "lebwohl-lahser") {
-    evolve->geometry->bulk_potential = &PotentialWrapper::Bulk_Energy_Lebwohl_Lasher_Wrapper;
+  // Configuração do potencial
+  if (strcasecmp(params.potential, "ll") * strcasecmp(params.potential, "lebwohl-lahser") == 0) {
+    evolve->geometry->bulk_potential = &Bulk_Energy_Lebwohl_Lasher;
     printf("Using lebwohl-lasher potential\n");
-  } else if (params.potential == "ghrl" || params.potential == "grun-hess") {
-    evolve->geometry->bulk_potential = &PotentialWrapper::Bulk_Energy_GHRL_Wrapper;
-    IO::setGHRL(params);
+  } else if (strcasecmp(params.potential, "ghrl") * strcasecmp(params.potential, "grun-hess") == 0) {
+    evolve->geometry->bulk_potential = &Bulk_Energy_GHRL;
+    setGHRL(params);
     printf("Using gruhn-hess potential\n");
-  } else if (params.potential == "pear") {
-    evolve->geometry->bulk_potential = &PotentialWrapper::Bulk_Energy_Selinger_Pear_Wrapper;
+  } else if (strcasecmp(params.potential, "pear") == 0) {
+    evolve->geometry->bulk_potential = &Bulk_Energy_Selinger_Pear;
     printf("Using splay-bend potential\n");
   } else {
-    printf("%s potential not programed.\n Try lebwohl-lasher(LL), pear, BC or gruhn-hess(GHRL)", params.potential.c_str());
+    printf("%s potential not programed.\n Try lebwohl-lasher(LL), pear, BC or gruhn-hess(GHRL)", params.potential);
     exit(2);
   }
 }
 
-int simulator::print_n(const std::string& fname, Parameters &params) {
-  return IO::print_n(fname, ni, params, pt);
+int simulator::print_n(char *fname, Parameters *params) {
+  // CORREÇÃO: Reutiliza a função já existente e testada do namespace FileIO
+  return FileIO::print_n(fname, ni, *params, pt);
 }
