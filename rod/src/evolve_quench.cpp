@@ -1,10 +1,10 @@
 #include <gsl/gsl_rng.h>
-#include <cmath>
+#include <math.h>
 #include <omp.h>
+#include <stdio.h>
+#include <string>
 
 #include <iostream>
-#include <memory>
-#include <cstdlib>
 
 #include "../include/define.h"
 #include "../include/evolve.h"
@@ -14,25 +14,24 @@
 #include "../include/parameter_order.h"
 #include "../include/parameters.h"
 #include "../include/potential.h"
+#include "../include/simulator.h" // Necessário para sim_ptr
 
-quenchEvolveN::quenchEvolveN(std::unique_ptr<float[]>& ni, std::unique_ptr<int[]>& ppt, Parameters *params)
-    : EvolveN(ni, ppt, params) {
+using namespace OrderParameters;
+
+quenchEvolveN::quenchEvolveN(float *ni, int *ppt, Parameters *params, simulator *sim_ptr)
+    : EvolveN(ni, ppt, params, sim_ptr) {
   printf("Initializing Step loop:\n");
   printf("Initial File Number= %d\n", params->first_file);
   printf("Last File Number= %d\n\n", params->first_file + params->fn);
-  this->ni = ni.get();
-  this->pt = ppt.get();
-  this->params = params;
 }
 
 int quenchEvolveN::run() {
   float S1, S2, sTemp;
   float tempE, E2, E;
-  float vec_nt[3];
   float vec_n[3];
   float mat_n[9];
   float ang_var = 0.5;
-  std::string fname;
+  char fname_c[1000];
 
   int num_threads = omp_get_max_threads();
   gsl_rng **rng = (gsl_rng **)calloc(num_threads, sizeof(gsl_rng *));
@@ -42,22 +41,21 @@ int quenchEvolveN::run() {
     gsl_rng_set(rng[i], i);
   }
 
-  fname = "po.dat";
-  FILE *po_file = fopen(fname.c_str(), "a");
+  sprintf(fname_c, "po.dat");
+  FILE *po_file = fopen(fname_c, "a");
   fprintf(po_file, "ii S varS E varE\n");
   fflush(po_file);
   params->T = params->Ti;
   printf("Step relaxation, for nematic molecules, using MCT=%d MCS=%d and fn=%d using %d threads\n",
          params->MCT, params->MCS, params->fn, num_threads);
   fflush(stdout);
-  
   for (int ii = params->first_file; ii < params->fn + params->first_file; ii++) {
     params->T = params->Ti;
     for (int step = 0; step < params->MCT; step++) {
       Monte_Carlo_Step(ang_var, rng);
     }
     params->T = params->Tf;
-    for (int step = 0; step < params->MCT * params->dT; step++) {
+    for (int step = 0; step < params->MCT*params->dT; step++) {
       Monte_Carlo_Step(ang_var, rng);
     }
     S1 = 0;
@@ -70,7 +68,7 @@ int quenchEvolveN::run() {
       E2 += tempE * tempE;
       E += tempE;
       OrderParameters::Matrice_constructor(ni, mat_n, pt, *params);
-      sTemp = OrderParameters::Eigen_value_evaluation(mat_n, vec_n);
+      sTemp = Eigen_value_evaluation(mat_n, vec_n);
       S1 += sTemp;
       S2 += sTemp * sTemp;
     }
@@ -78,16 +76,16 @@ int quenchEvolveN::run() {
     E2 /= params->MCS;
     S1 /= params->MCS;
     S2 /= params->MCS;
-    fname = "director_field_" + std::to_string(ii) + ".csv";
-    IO::print_n(fname, ni, *params, pt);
+    
+    // DELEGAÇÃO: Chamada compatível para o método do simulator
+    sprintf(fname_c, "director_field_%d.csv", ii);
+    sim_ptr->print_n(std::string(fname_c), *params);
+    
     fprintf(po_file, "%d %g %g %g %g\n", ii, S1, S2 - S1 * S1, E, (E2 - E * E));
     fflush(po_file);
   }
 
-  for (int i = 0; i < num_threads; i++) 
-    gsl_rng_free(rng[i]);
+  for (int i = 0; i < num_threads; i++) gsl_rng_free(rng[i]);
   free(rng);
-  fclose(po_file);
-  
   return 0;
 }

@@ -1,11 +1,12 @@
 #include <gsl/gsl_rng.h>
 #include <math.h>
 #include <string.h>
-#include <memory>
+
 #include <iostream>
 #include <map>
 #include <string>
 #include <vector>
+#include <memory> 
 
 #include "../include/anchoring.h"
 #include "../include/geometry.h"
@@ -16,28 +17,27 @@ Slab_Geometry::Slab_Geometry(int *pt, Parameters *params) : Geometry(params) {
   printf("Geometry: Slab\n");
   nSurfaces = 2;
   
-  ns = std::make_unique<float[]>(Nx * Ny * Nz * 3);
-  for (int i = 0; i < Nx * Ny * Nz * 3; i++) {
-    ns[i] = 0.0f;
-  }
+  ns = std::unique_ptr<float[]>(new float[Nx * Ny * Nz * 3]());
   
-  surfaces.clear();
+  surfaces.resize(nSurfaces);
+
   pt = set_point_type_normals(pt, params);
 
-  params->ZBoundtype = "free";
+  params->ZBoundtype = "free"; 
+  params->ZBound = &Free_Boundary; 
   
-  if (params->XBoundtype == "free")
+  if (strcasecmp(params->XBoundtype.c_str(), "free") == 0)
     params->XBound = &Free_Boundary;
-  else if (params->XBoundtype == "periodic")
+  else if (strcasecmp(params->XBoundtype.c_str(), "periodic") == 0)
     params->XBound = &Periodic_Boundary;
   else {
     fprintf(stderr, "X boundary condition: %s not implemented \n", params->XBoundtype.c_str());
     exit(2);
   }
 
-  if (params->YBoundtype == "free")
+  if (strcasecmp(params->YBoundtype.c_str(), "free") == 0)
     params->YBound = &Free_Boundary;
-  else if (params->YBoundtype == "periodic")
+  else if (strcasecmp(params->YBoundtype.c_str(), "periodic") == 0)
     params->YBound = &Periodic_Boundary;
   else {
     fprintf(stderr, "Y boundary condition: %s not implemented \n", params->YBoundtype.c_str());
@@ -50,23 +50,24 @@ Slab_Geometry::Slab_Geometry(int *pt, Parameters *params) : Geometry(params) {
 }
 
 int *Slab_Geometry::set_point_type_normals(int *pt, Parameters *params) {
+  int kk;
+  float *ns_ptr = ns.get(); 
+
   for (int ii = 0; ii < Nx; ii++) {
     for (int jj = 0; jj < Ny; jj++) {
-      int kk = 0;
+      kk = 0;
       pt[ii + Nx * (jj + Ny * kk)] = 2;
-      ns[(ii + Nx * (jj + Ny * kk)) * 3 + 0] = 0;
-      ns[(ii + Nx * (jj + Ny * kk)) * 3 + 1] = 0;
-      ns[(ii + Nx * (jj + Ny * kk)) * 3 + 2] = -1;
-      
+      ns_ptr[(ii + Nx * (jj + Ny * kk)) * 3 + 0] = 0;
+      ns_ptr[(ii + Nx * (jj + Ny * kk)) * 3 + 1] = 0;
+      ns_ptr[(ii + Nx * (jj + Ny * kk)) * 3 + 2] = -1;
       for (kk = 1; kk < Nz - 1; kk++) {
-        pt[ii + Nx * (jj + Ny * kk)] = 0;
+        pt[ii + Nx * (jj + Ny * kk)] = 1;
       }
-      
       kk = Nz - 1;
       pt[ii + Nx * (jj + Ny * kk)] = 3;
-      ns[(ii + Nx * (jj + Ny * kk)) * 3 + 0] = 0;
-      ns[(ii + Nx * (jj + Ny * kk)) * 3 + 1] = 0;
-      ns[(ii + Nx * (jj + Ny * kk)) * 3 + 2] = 1;
+      ns_ptr[(ii + Nx * (jj + Ny * kk)) * 3 + 0] = 0;
+      ns_ptr[(ii + Nx * (jj + Ny * kk)) * 3 + 1] = 0;
+      ns_ptr[(ii + Nx * (jj + Ny * kk)) * 3 + 2] = 1;
     }
   }
   return pt;
@@ -82,12 +83,13 @@ float Slab_Geometry::lattice_Potential(const nni fullni[7]) {
     E += Geometry::second_nerghbours(fullni);
   if (params->neighbourKind == 3)
     E += Geometry::third_nerghbours(fullni);
-  
+    
   float s[3] = {fullni[7].x, fullni[7].y, fullni[7].z};
-  if (fullni[0].pt > 1)
-    E += surfaces[fullni[0].pt - 2]->surface_potential(ni, s);
   
-  if (params->elecA != 0) 
+  if (fullni[0].pt > 1)
+    E += surfaces[fullni[0].pt - 2]->surface_potential(ni, s); 
+    
+  if (params->elecA!=0) 
     E += Potential::Electric_Potential(ni, *params);
 
   return E;

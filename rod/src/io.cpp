@@ -12,277 +12,290 @@
 #include "../include/parameters.h"
 #include "../include/potential.h"
 
-int IO::print_n(char *fname, float *ni, Parameters params, int *pt) {
-  int Nx = params.lattice.Nx;
-  int Ny = params.lattice.Ny;
-  int Nz = params.lattice.Nz;
+#include <memory>
+#include "../include/parameter_order.h"
+
+namespace IO {
+
+int print_n(const std::string& fname, std::unique_ptr<float[]>& ni, Parameters& params, std::unique_ptr<int[]>& pt) {
+  
+  float *ni_ptr = ni.get();
+  int *pt_ptr = pt.get();
+
+  int Nx = params.Nx;
+  int Ny = params.Ny;
+  int Nz = params.Nz;
   float S;
-  FILE *output = fopen(fname, "w");
+  
+  FILE *output = fopen(fname.c_str(), "w"); 
   if (output == 0) {
-    perror(fname);
+    perror(fname.c_str());
     return 1;
   }
   fprintf(output, "x,y,z,nx,ny,nz,S,pt\n");
 
-  for (int k = 0; k < params.lattice.Nz; k++) {
-    for (int j = 0; j < params.lattice.Ny; j++) {
-      for (int i = 0; i < params.lattice.Nx; i++) {
-        S = pti(i, j, k) ? OrderParameters::lattice_order_parameter(ni, pt, i, j, k, params) : 1;
+  for (int k = 0; k < params.Nz; k++) {
+    for (int j = 0; j < params.Ny; j++) {
+      for (int i = 0; i < params.Nx; i++) {
+        S = pti(i, j, k) ? OrderParameters::lattice_order_parameter(ni_ptr, pt_ptr, i, j, k, params) : 1;
         fprintf(output, "%d,%d,%d,%g,%g,%g,%g,%d\n", i, j, k,
                 nix(i, j, k), niy(i, j, k), niz(i, j, k), S, pti(i, j, k));
       }
     }
   }
-  printf("Snapshot saved in %s\n", fname);
+  printf("Snapshot saved in %s\n", fname.c_str());
   fflush(stdout);
   fclose(output);
   return 0;
 }
 
-Parameters IO::read_input_file(char *fname) {
+Parameters read_input_file(const std::string& fname) {
   Parameters input_params;
   std::ifstream input_file;
   int nn;
-  if (fname == NULL) {
+
+  if (fname.empty()) { 
     printf("File not found, using standart parameter values\n");
     return input_params;
   } else {
-    input_file.open(fname);
+    input_file.open(fname); 
     if (!input_file) {
-      perror(fname);
+      perror(fname.c_str());
       exit(5);
     }
     std::cout << "Using \"" << fname << "\" as input file\n\n";
   }
-  char parser[200];
+  
+  std::string parser; 
   char *garbage = (char *)malloc(400);
 
   while (input_file >> parser) {
-    if (strcasecmp(parser, "nx") == 0) {
-      input_file >> input_params.lattice.Nx;
+    if (strcasecmp(parser.c_str(), "nx") == 0) {
+      input_file >> input_params.Nx;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "ny") == 0) {
-      input_file >> input_params.lattice.Ny;
+    } else if (strcasecmp(parser.c_str(), "ny") == 0) {
+      input_file >> input_params.Ny;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "nz") == 0) {
-      input_file >> input_params.lattice.Nz;
+    } else if (strcasecmp(parser.c_str(), "nz") == 0) {
+      input_file >> input_params.Nz;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "A") == 0) {
-      input_file >> input_params.potential.A;
+    } else if (strcasecmp(parser.c_str(), "A") == 0) {
+      input_file >> input_params.A;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "B1") == 0) {
-      input_file >> input_params.potential.B1;
+    } else if (strcasecmp(parser.c_str(), "B1") == 0) {
+      input_file >> input_params.B1;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "B2") == 0) {
-      input_file >> input_params.potential.B2;
+    } else if (strcasecmp(parser.c_str(), "B2") == 0) {
+      input_file >> input_params.B2;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "C") == 0) {
-      input_file >> input_params.potential.C;
+    } else if (strcasecmp(parser.c_str(), "C") == 0) {
+      input_file >> input_params.C;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "Ti") == 0) {
-      input_file >> input_params.potential.Ti;
+    } else if (strcasecmp(parser.c_str(), "Ti") == 0) {
+      input_file >> input_params.Ti;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "Tf") == 0) {
-      input_file >> input_params.potential.Tf;
+    } else if (strcasecmp(parser.c_str(), "Tf") == 0) {
+      input_file >> input_params.Tf;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "dT") == 0) {
-      input_file >> input_params.potential.dT;
+    } else if (strcasecmp(parser.c_str(), "dT") == 0) {
+      input_file >> input_params.dT;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "MCS") == 0) {
-      input_file >> input_params.mc.MCS;
+    } else if (strcasecmp(parser.c_str(), "MCS") == 0) {
+      input_file >> input_params.MCS;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "MCT") == 0) {
-      input_file >> input_params.mc.MCT;
+    } else if (strcasecmp(parser.c_str(), "MCT") == 0) {
+      input_file >> input_params.MCT;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "ic") == 0) {
-      input_file >> input_params.ic.ic;
+    } else if (strcasecmp(parser.c_str(), "ic") == 0) {
+      input_file >> input_params.ic;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "ic_file") == 0) {
-      input_file >> input_params.ic.ic_file;
+    } else if (strcasecmp(parser.c_str(), "ic_file") == 0) {
+      input_file >> input_params.ic_file;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "xbound") == 0) {
-      input_file >> input_params.lattice.XBoundtype;
+    } else if (strcasecmp(parser.c_str(), "xbound") == 0) {
+      input_file >> input_params.XBoundtype;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "ybound") == 0) {
-      input_file >> input_params.lattice.YBoundtype;
+    } else if (strcasecmp(parser.c_str(), "ybound") == 0) {
+      input_file >> input_params.YBoundtype;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "zbound") == 0) {
-      input_file >> input_params.lattice.ZBoundtype;
+    } else if (strcasecmp(parser.c_str(), "zbound") == 0) {
+      input_file >> input_params.ZBoundtype;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "potential") == 0) {
-      input_file >> input_params.potential.potential;
+    } else if (strcasecmp(parser.c_str(), "potential") == 0) {
+      input_file >> input_params.potential;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "evol") == 0 || strcasecmp(parser, "mode") == 0) {
-      input_file >> input_params.mc.evol;
+    } else if (strcasecmp(parser.c_str(), "evol")*strcasecmp(parser.c_str(), "mode") == 0) {
+      input_file >> input_params.evol;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "k11") == 0) {
-      input_file >> input_params.ic.k11;
+    } else if (strcasecmp(parser.c_str(), "k11") == 0) {
+      input_file >> input_params.k11;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "k22") == 0) {
-      input_file >> input_params.ic.k22;
+    } else if (strcasecmp(parser.c_str(), "k22") == 0) {
+      input_file >> input_params.k22;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "k33") == 0) {
-      input_file >> input_params.ic.k33;
+    } else if (strcasecmp(parser.c_str(), "k33") == 0) {
+      input_file >> input_params.k33;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "p0") == 0) {
-      input_file >> input_params.ic.p0;
+    } else if (strcasecmp(parser.c_str(), "p0") == 0) {
+      input_file >> input_params.p0;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "phi_0") == 0) {
-      input_file >> input_params.ic.phi_0;
+    } else if (strcasecmp(parser.c_str(), "phi_0") == 0) {
+      input_file >> input_params.phi_0;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "theta_0") == 0) {
-      input_file >> input_params.ic.theta_0;
+    } else if (strcasecmp(parser.c_str(), "theta_0") == 0) {
+      input_file >> input_params.theta_0;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "p0_i") == 0) {
-      input_file >> input_params.ic.p0_i;
+    } else if (strcasecmp(parser.c_str(), "p0_i") == 0) {
+      input_file >> input_params.p0_i;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "fn") == 0) {
-      input_file >> input_params.mc.fn;
+    } else if (strcasecmp(parser.c_str(), "fn") == 0) {
+      input_file >> input_params.fn;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "first_file_number") == 0 || strcasecmp(parser, "initial_output") == 0) {
-      input_file >> input_params.mc.first_file;
+    } else if (strcasecmp(parser.c_str(), "first_file_number") * strcasecmp(parser.c_str(), "initial_output") == 0) {
+      input_file >> input_params.first_file;
       input_file.getline(garbage, 400);
     } else if (parser[0] == '#') {
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "geometry") == 0) {
-      input_file >> input_params.lattice.geometry;
+    } else if (strcasecmp(parser.c_str(), "geometry") == 0) {
+      input_file >> input_params.geometry;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "boundary_file") == 0) {
-      input_file >> input_params.surface.bound_file_name;
+    } else if (strcasecmp(parser.c_str(), "boundary_file") == 0) {
+      input_file >> input_params.bound_file_name;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "anchoring_type") == 0) {
+    } else if (strcasecmp(parser.c_str(), "anchoring_type") == 0) {
       input_file >> nn;
-      input_file >> input_params.surface.anchoring_type[nn];
+      input_file >> input_params.anchoring_type[nn];
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "W") == 0) {
+    } else if (strcasecmp(parser.c_str(), "W") == 0) {
       input_file >> nn;
-      input_file >> input_params.surface.W[nn];
+      input_file >> input_params.W[nn];
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "phi_s") == 0) {
+    } else if (strcasecmp(parser.c_str(), "phi_s") == 0) {
       input_file >> nn;
-      input_file >> input_params.surface.phi_s[nn];
+      input_file >> input_params.phi_s[nn];
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "theta_s") == 0) {
+    } else if (strcasecmp(parser.c_str(), "theta_s") == 0) {
       input_file >> nn;
-      input_file >> input_params.surface.theta_s[nn];
+      input_file >> input_params.theta_s[nn];
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "nk") == 0 || strcasecmp(parser, "neighbour_kind") == 0 || strcasecmp(parser, "neighbour") == 0) {
-      input_file >> input_params.neighbourhood.neighbourKind;
+    } else if (strcasecmp(parser.c_str(), "nk") * strcasecmp(parser.c_str(), "neighbour_kind") * strcasecmp(parser.c_str(), "neighbour") == 0) {
+      input_file >> input_params.neighbourKind;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "elecX") == 0 || strcasecmp(parser, "Electric_field_x") == 0 || strcasecmp(parser, "EF_x") == 0) {
-      input_file >> input_params.electric.elecX;
+    } else if (strcasecmp(parser.c_str(), "elecX")*strcasecmp(parser.c_str(), "Electric_field_x")*strcasecmp(parser.c_str(), "EF_x") == 0) {
+      input_file >> input_params.elecX;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "elecY") == 0 || strcasecmp(parser, "Electric_field_y") == 0 || strcasecmp(parser, "EF_y") == 0) {
-      input_file >> input_params.electric.elecY;
+    } else if (strcasecmp(parser.c_str(), "elecY")*strcasecmp(parser.c_str(), "Electric_field_y")*strcasecmp(parser.c_str(), "EF_y")  == 0) {
+      input_file >> input_params.elecY;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "elecZ") == 0 || strcasecmp(parser, "Electric_field_z") == 0 || strcasecmp(parser, "EF_z") == 0) {
-      input_file >> input_params.electric.elecZ;
+    } else if (strcasecmp(parser.c_str(), "elecZ")*strcasecmp(parser.c_str(), "Electric_field_z")*strcasecmp(parser.c_str(), "EF_z")  == 0) {
+      input_file >> input_params.elecZ;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "Ei") == 0 || strcasecmp(parser, "initial_E") == 0) {
-      input_file >> input_params.electric.elecEi;
+    } else if (strcasecmp(parser.c_str(), "Ei")*strcasecmp(parser.c_str(), "initial_E")  == 0) {
+      input_file >> input_params.elecEi;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "Ef") == 0 || strcasecmp(parser, "final_E") == 0) {
-      input_file >> input_params.electric.elecEf;
+    } else if (strcasecmp(parser.c_str(), "Ef")*strcasecmp(parser.c_str(), "final_E")  == 0) {
+      input_file >> input_params.elecEf;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "dE") == 0 || strcasecmp(parser, "E_variation") == 0) {
-      input_file >> input_params.electric.elecdE;
+    } else if (strcasecmp(parser.c_str(), "dE")*strcasecmp(parser.c_str(), "E_variation")  == 0) {
+      input_file >> input_params.elecdE;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "elecA") == 0 || strcasecmp(parser, "dielectric_anisotropy") == 0 || strcasecmp(parser, "Aniso_E") == 0) {
-      input_file >> input_params.electric.elecA;
+    } else if (strcasecmp(parser.c_str(), "elecA")*strcasecmp(parser.c_str(), "dielectric_anisotropy")*strcasecmp(parser.c_str(), "Aniso_E")  == 0) {
+      input_file >> input_params.elecA;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "rhoScale") == 0 || strcasecmp(parser, "rho_Scale") == 0) {
-      input_file >> input_params.neighbourhood.rhoScale;
+    } else if (strcasecmp(parser.c_str(), "rhoScale")*strcasecmp(parser.c_str(), "rho_Scale") == 0) {
+      input_file >> input_params.rhoScale;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "lambdaScale") == 0 || strcasecmp(parser, "lambda_Scale") == 0) {
-      input_file >> input_params.neighbourhood.lambdaScale;
+    } else if (strcasecmp(parser.c_str(), "lambdaScale")*strcasecmp(parser.c_str(), "lambda_Scale") == 0) {
+      input_file >> input_params.lambdaScale;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "muScale") == 0 || strcasecmp(parser, "mu_Scale") == 0) {
-      input_file >> input_params.neighbourhood.muScale;
+    } else if (strcasecmp(parser.c_str(), "muScale")*strcasecmp(parser.c_str(), "mu_Scale") == 0) {
+      input_file >> input_params.muScale;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "nuScale") == 0 || strcasecmp(parser, "nu_Scale") == 0) {
-      input_file >> input_params.neighbourhood.nuScale;
+    } else if (strcasecmp(parser.c_str(), "nuScale")*strcasecmp(parser.c_str(), "nu_Scale") == 0) {
+      input_file >> input_params.nuScale;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "sigmaScale") == 0 || strcasecmp(parser, "sigma_Scale") == 0) {
-      input_file >> input_params.neighbourhood.sigmaScale;
+    } else if (strcasecmp(parser.c_str(), "sigmaScale")*strcasecmp(parser.c_str(), "sigma_Scale") == 0) {
+      input_file >> input_params.sigmaScale;
       input_file.getline(garbage, 400);
     } else {
-      printf("%c\n", parser[0]);
-      fprintf(stderr, "invalid parameter %s!!\n", parser);
+      printf("%s\n", parser.c_str());
+      fprintf(stderr, "invalid parameter %s!!\n", parser.c_str());
       exit(3);
     }
-    IO::check_error_bits(&input_file, parser);
+    check_error_bits(input_file, parser); 
   }
+  
+  free(garbage); 
 
   return input_params;
 }
 
-void IO::print_parameters(Parameters params) {
+void print_parameters(Parameters params) {
   printf("###Using the following parameters for this simulation.###\n");
-  printf("Nx  %d\n", params.lattice.Nx);
-  printf("Ny  %d\n", params.lattice.Ny);
-  printf("Nz  %d\n", params.lattice.Nz);
+  printf("Nx  %d\n", params.Nx);
+  printf("Ny  %d\n", params.Ny);
+  printf("Nz  %d\n", params.Nz);
 
-  printf("MCS %d\n", params.mc.MCS);
-  printf("MCT %d\n", params.mc.MCT);
-  
-  if (strcasecmp(params.ic.ic_file, "ic_file") == 0) printf("ic_file  %s\n", params.ic.ic_file);
-  printf("mode  %s\n", params.potential.potential);
-  
-  if (params.electric.elecA){
+  printf("MCS %d\n", params.MCS);
+  printf("MCT %d\n", params.MCT);
+  if (strcasecmp(params.ic.c_str(), "ic_file") == 0) printf("ic_file  %s\n", params.ic_file.c_str());
+  printf("mode  %s\n", params.potential.c_str());
+  if (params.elecA){
   printf("###Electric Field###\n");
-  printf("Electric_Field_x  %g\n", params.electric.elecX);
-  printf("Electric_Field_y  %g\n", params.electric.elecY);
-  printf("Electric_Field_z  %g\n", params.electric.elecZ);
-  printf("Dielectric_Anisotropy  %g\n", params.electric.elecA);
+  printf("Electric_Field_x  %g\n", params.elecX);
+  printf("Electric_Field_y  %g\n", params.elecY);
+  printf("Electric_Field_z  %g\n", params.elecZ);
+  printf("Dielectric_Anisotropy  %g\n", params.elecA);
+
+
   }
   printf("\n");
 }
-
-void IO::setGHRL(Parameters &params) {
-  float k11 = params.ic.k11;
-  float k22 = params.ic.k22;
-  float k33 = params.ic.k33;
-  float p0 = params.ic.p0;
+void setGHRL(Parameters &params) {
+  float k11 = params.k11;
+  float k22 = params.k22;
+  float k33 = params.k33;
+  float p0 = params.p0;
   float Scale = fabs((9.0) / (k11 - 3 * k22 - k33));
 
-  params.potential.ghrl_sigma = p0 ? -Scale * k22 * (2 * M_PI / p0) : 0;
-  params.potential.ghrl_lambda = (Scale / 9) * (2 * k11 - 3 * k22 + k33);
-  params.potential.ghrl_mu = Scale * (k22 - k11);
-  params.potential.ghrl_rho = (Scale / 9) * (k11 - k33);
-  params.potential.ghrl_nu = (Scale / 9) * (k11 - 3 * k22 - k33);
-  
-  params.neighbourhood.neighbourScale = (k11 + k33) / k22;
+  params.ghrl_sigma = p0 ? -Scale * k22 * (2 * M_PI / p0) : 0;
+  params.ghrl_lambda = (Scale / 9) * (2 * k11 - 3 * k22 + k33);
+  params.ghrl_mu = Scale * (k22 - k11);
+  params.ghrl_rho = (Scale / 9) * (k11 - k33);
+  params.ghrl_nu = (Scale / 9) * (k11 - 3 * k22 - k33);
+  params.neighbourScale = (k11 + k33) / k22;
   printf("### Elastic parameters:\n");
   printf("k11 %g \nk22 %g \nk33 %g\n", k11, k22, k33);
-  printf("lambda %g\n", params.potential.ghrl_lambda);
-  printf("mu     %g\n", params.potential.ghrl_mu);
-  printf("rho    %g\n", params.potential.ghrl_rho);
-  printf("nu     %g\n", params.potential.ghrl_nu);
-  printf("sigma  %g\n\n", params.potential.ghrl_sigma);
+  printf("lambda %g\n", params.ghrl_lambda);
+  printf("mu     %g\n", params.ghrl_mu);
+  printf("rho    %g\n", params.ghrl_rho);
+  printf("nu     %g\n", params.ghrl_nu);
+  printf("sigma  %g\n\n", params.ghrl_sigma);
   printf("#scaled by  %g\n\n", Scale);
-  
-  if (params.neighbourhood.neighbourKind==2){
-    printf("### Second Neighbours Parameters Scale\n");
-    printf("lambda_Scale %g\n",params.neighbourhood.lambdaScale);
-    printf("mu_Scale %g\n",params.neighbourhood.muScale);
-    printf("rho_Scale %g\n",params.neighbourhood.rhoScale);
-    printf("nu_Scale %g\n",params.neighbourhood.nuScale);
-    printf("sigma_Scale %g\n",params.neighbourhood.sigmaScale);
+  if (params.neighbourKind==2){
+    printf("### Second Neighbours Parameters Scale");
+    printf("lambda_Scale %g\n",params.lambdaScale);
+    printf("mu_Scale %g\n",params.muScale);
+    printf("rho_Scale %g\n",params.rhoScale);
+    printf("nu_Scale %g\n",params.nuScale);
+    printf("sigma_Scale %g\n",params.sigmaScale);
   }
 }
 
-void IO::check_error_bits(std::ifstream *f, char *parser) {
+void check_error_bits(std::ifstream &f, const std::string& parser) {
   int stop = 0;
-  if (f->eof()) {
+  if (f.eof()) { 
     perror("stream eofbit. error state");
     stop = 0;
   }
-  if (f->fail()) {
+  if (f.fail()) { 
     std::cerr << "Invalid value to parameter " << parser << std::endl;
     exit(1);
   }
-  if (f->bad()) {
+  if (f.bad()) { 
     std::cerr << "stream badbit. error state" << std::endl;
     exit(1);
   }
 }
+
+} 

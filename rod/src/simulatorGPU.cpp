@@ -1,10 +1,15 @@
 #include <gsl/gsl_rng.h>
 #include <string.h>
+#include <memory>
+#include <algorithm> 
+#include <cstdio>
 
 #include <iostream>
 
 #include "../include/define.h"
+#ifdef CUDA__
 #include "../include/evolve.cuh"
+#endif
 #include "../include/evolve.h"
 #include "../include/ic.h"
 #include "../include/io.h"
@@ -14,117 +19,128 @@
 #include "../include/potential.h"
 #include "../include/simulator.h"
 
-simulator::simulator(Parameters *params) : Nx(params->lattice.Nx), Ny(params->lattice.Ny), Nz(params->lattice.Nz) {
+namespace PotentialWrapper {
+    float Bulk_Energy_Lebwohl_Lasher_Wrapper(float ni[3], float nj[3], Parameters *params, float rij[3], int nk) {
+        return Potential::Bulk_Energy_Lebwohl_Lasher(ni, nj, *params, rij, nk);
+    }
+    
+    float Bulk_Energy_GHRL_Wrapper(float ni[3], float nj[3], Parameters *params, float rij[3], int nk) {
+        return Potential::Bulk_Energy_GHRL(ni, nj, *params, rij, nk);
+    }
+    
+    float Bulk_Energy_Selinger_Pear_Wrapper(float ni[3], float nj[3], Parameters *params, float rij[3], int nk) {
+        return Potential::Bulk_Energy_Selinger_Pear(ni, nj, *params, rij, nk);
+    }
+}
+
+simulator::simulator(Parameters *params) : Nx(params->Nx), Ny(params->Ny), Nz(params->Nz) {
   this->params = params;
 }
 
 simulator::~simulator() {
+    if (evolve) {
+        delete evolve->geometry;
+    }
 }
+
 
 void simulator::Setup_simmulation(Parameters &params) {
+  int Nn = params.Nx * params.Ny * params.Nz;
+  int Nn3 = 3 * Nn;
+  
+  ni = std::make_unique<float[]>(Nn3);
+  pt = std::make_unique<int[]>(Nn);
+  
+  std::fill(ni.get(), ni.get() + Nn3, 0.0f);
+  std::fill(pt.get(), pt.get() + Nn, 0);
 
-  int Nn = 3 * params.lattice.Nx * params.lattice.Ny * params.lattice.Nz;
-  ni = (float *)calloc(Nn, sizeof(float));
-  pt = (int *)calloc(Nn, sizeof(int));
+  float *ni_raw = ni.get();
+  int *pt_raw = pt.get();
 
-  if (strcasecmp(params.mc.evol, "thermal") == 0) {
-    evolve = new thermalEvolveN(ni, pt, &params);
-  } else if (strcasecmp(params.mc.evol, "step") == 0) {
-    evolve = new stepEvolveN(ni, pt, &params);
-  } else if (strcasecmp(params.mc.evol, "quench") == 0) {
-    evolve = new quenchEvolveN(ni, pt, &params);
-  } else if (strcasecmp(params.mc.evol, "electric") == 0) {
-    evolve = new electricEvolveN(ni, pt, &params);
-  } else if (strcasecmp(params.mc.evol, "thermalGPU") == 0) {
-    evolve = new thermalEvolveNGPU(ni, pt, &params);
-  } else if (strcasecmp(params.mc.evol, "stepGPU") == 0) {
-    evolve = new stepEvolveNGPU(ni, pt, &params);
-  } else if (strcasecmp(params.mc.evol, "quenchGPU") == 0) {
-    evolve = new quenchEvolveNGPU(ni, pt, &params);
-  } else if (strcasecmp(params.mc.evol, "electricGPU") == 0) {
-    evolve = new electricEvolveNGPU(ni, pt, &params);
+  if (params.evol == "thermal") {
+    evolve = std::make_unique<thermalEvolveN>(ni_raw, pt_raw, &params);
+  } else if (params.evol == "step") {
+    evolve = std::make_unique<stepEvolveN>(ni_raw, pt_raw, &params);
+  } else if (params.evol == "quench") {
+    evolve = std::make_unique<quenchEvolveN>(ni_raw, pt_raw, &params);
+  } else if (params.evol == "electric") {
+    evolve = std::make_unique<electricEvolveN>(ni_raw, pt_raw, &params);
+#ifdef CUDA__
+  } else if (params.evol == "thermalGPU") {
+    evolve = std::make_unique<thermalEvolveNGPU>(ni_raw, pt_raw, &params);
+  } else if (params.evol == "stepGPU") {
+    evolve = std::make_unique<stepEvolveNGPU>(ni_raw, pt_raw, &params);
+  } else if (params.evol == "quenchGPU") {
+    evolve = std::make_unique<quenchEvolveNGPU>(ni_raw, pt_raw, &params);
+  } else if (params.evol == "electricGPU") {
+    evolve = std::make_unique<electricEvolveNGPU>(ni_raw, pt_raw, &params);
+#endif
   } else {
-    printf("Evolve %s not defined, try thermal or step\n", params.mc.evol);
+    printf("Evolve %s not defined, try thermal or step\n", params.evol.c_str());
     exit(2);
   }
 
-  if (strcasecmp(params.lattice.geometry, "bulk") == 0) {
-    evolve->geometry = new Bulk_Geometry(pt, &params);
-  } else if (strcasecmp(params.lattice.geometry, "slab") == 0) {
-    evolve->geometry = new Slab_Geometry(pt, &params);
-  } else if (strcasecmp(params.lattice.geometry, "sphere") == 0) {
-    evolve->geometry = new Sphere_Geometry(pt, &params);
-  } else if (strcasecmp(params.lattice.geometry, "custom") == 0) {
-    evolve->geometry = new Custom_Geometry(pt, &params);
+  if (params.geometry == "bulk") {
+    evolve->geometry = new Bulk_Geometry(pt_raw, &params);
+  } else if (params.geometry == "slab") {
+    evolve->geometry = new Slab_Geometry(pt_raw, &params);
+  } else if (params.geometry == "sphere") {
+    evolve->geometry = new Sphere_Geometry(pt_raw, &params);
+  } else if (params.geometry == "custom") {
+    evolve->geometry = new Custom_Geometry(pt_raw, &params);
   } else {
-    fprintf(stderr, "Geometry %s not defined\n", params.lattice.geometry);
+    fprintf(stderr, "Geometry %s not defined\n", params.geometry.c_str());
     exit(2);
   }
 
-  if (strcasecmp(params.lattice.XBoundtype, "free") == 0)
-    params.lattice.XBound = &Potential::Free_Boundary;
-  else if (strcasecmp(params.lattice.XBoundtype, "periodic") == 0)
-    params.lattice.XBound = &Potential::Periodic_Boundary;
+  if (params.XBoundtype == "free")
+    params.XBound = &Free_Boundary;
+  else if (params.XBoundtype == "periodic")
+    params.XBound = &Periodic_Boundary;
   else {
-    fprintf(stderr, "X boundary condition: %s not implemented \n", params.lattice.XBoundtype);
+    fprintf(stderr, "X boundary condition: %s not implemented \n", params.XBoundtype.c_str());
     exit(2);
   }
 
-  if (strcasecmp(params.lattice.YBoundtype, "free") == 0)
-    params.lattice.YBound = &Potential::Free_Boundary;
-  else if (strcasecmp(params.lattice.YBoundtype, "periodic") == 0)
-    params.lattice.YBound = &Potential::Periodic_Boundary;
+  if (params.YBoundtype == "free")
+    params.YBound = &Free_Boundary;
+  else if (params.YBoundtype == "periodic")
+    params.YBound = &Periodic_Boundary;
   else {
-    fprintf(stderr, "Y boundary condition: %s not implemented \n", params.lattice.YBoundtype);
+    fprintf(stderr, "Y boundary condition: %s not implemented \n", params.YBoundtype.c_str());
     exit(2);
   }
 
-  if (strcasecmp(params.lattice.ZBoundtype, "free") == 0)
-    params.lattice.ZBound = &Potential::Free_Boundary;
-  else if (strcasecmp(params.lattice.ZBoundtype, "periodic") == 0)
-    params.lattice.ZBound = &Potential::Periodic_Boundary;
+  if (params.ZBoundtype == "free")
+    params.ZBound = &Free_Boundary;
+  else if (params.ZBoundtype == "periodic")
+    params.ZBound = &Periodic_Boundary;
   else {
-    fprintf(stderr, "Z boundary condition: %s not implemented \n", params.lattice.ZBoundtype);
+    fprintf(stderr, "Z boundary condition: %s not implemented \n", params.ZBoundtype.c_str());
     exit(2);
   }
+
   evolve->geometry->Boundary_Init(&params);
-  evolve->check_Points(pt, params);
+  evolve->check_Points(pt_raw, params);
+  
   apply_Initial_Condidions(ni, pt, params);
 
-  if (strcasecmp(params.potential.potential, "ll") * strcasecmp(params.potential.potential, "lebwohl-lahser") == 0) {
-    evolve->geometry->bulk_potential = &Potential::Bulk_Energy_Lebwohl_Lasher;
+  if (params.potential == "ll" || params.potential == "lebwohl-lahser") {
+    evolve->geometry->bulk_potential = PotentialWrapper::Bulk_Energy_Lebwohl_Lasher_Wrapper;
     printf("Using lebwohl-lasher potential\n");
-  } else if (strcasecmp(params.potential.potential, "ghrl") * strcasecmp(params.potential.potential, "grun-hess") == 0) {
-    evolve->geometry->bulk_potential = &Potential::Bulk_Energy_GHRL;
+  } else if (params.potential == "ghrl" || params.potential == "grun-hess") {
+    evolve->geometry->bulk_potential = PotentialWrapper::Bulk_Energy_GHRL_Wrapper;
     IO::setGHRL(params);
     printf("Using gruhn-hess potential\n");
-  } else if (strcasecmp(params.potential.potential, "pear") == 0) {
-    evolve->geometry->bulk_potential = &Potential::Bulk_Energy_Selinger_Pear;
+  } else if (params.potential == "pear") {
+    evolve->geometry->bulk_potential = PotentialWrapper::Bulk_Energy_Selinger_Pear_Wrapper;
     printf("Using splay-bend potential\n");
   } else {
-    printf("%s potential not programed.\n Try lebwohl-lasher(LL), pear, BC or gruhn-hess(GHRL)", params.potential);
+    printf("%s potential not programed.\n Try lebwohl-lasher(LL), pear, BC or gruhn-hess(GHRL)", params.potential.c_str());
     exit(2);
   }
 }
 
-int simulator::print_n(char *fname, Parameters *params) {
-  FILE *output = fopen(fname, "w");
-  if (output == 0) {
-    perror(fname);
-    return 1;
-  }
-  fprintf(output, "x,y,z,nx,ny,nz,s,pt\n");
-
-  for (int k = 0; k < params->lattice.Nz; k++) {
-    for (int j = 0; j < params->lattice.Ny; j++) {
-      for (int i = 0; i < params->lattice.Nx; i++) {
-        fprintf(output, "%d,%d,%d,%g,%g,%g,1,%d\n", i, j, k,
-                nix(i, j, k), niy(i, j, k), niz(i, j, k), pti(i, j, k));
-      }
-    }
-  }
-  printf("Snapshot saved in %s\n", fname);
-  fflush(stdout);
-  fclose(output);
-  return 0;
+int simulator::print_n(const std::string& fname, Parameters &params) {
+  return IO::print_n(fname, ni, params, pt);
 }

@@ -3,7 +3,6 @@
 
 #include <gsl/gsl_rng.h>
 #include <iostream>
-#include <memory>
 
 #include "../include/define.h"
 #include "../include/evolve.h"
@@ -15,19 +14,18 @@
 
 class simulator {
  public:
-  simulator(Parameters *params);
-  Parameters *params;
-  void Setup_simmulation(Parameters &params);
-  int print_n(char *fname, Parameters *params);
+  simulator(Parameters* params);
+  ~simulator();
+
+  Parameters* params;
+  void Setup_simmulation(Parameters& params);
+  int print_n(char* fname, Parameters* params);
   int Nx, Ny, Nz;
-  
-  std::unique_ptr<Evolve> evolve;
-  std::unique_ptr<int[]> pt;
-  
-  ~simulator() = default;
+  Evolve* evolve;
+  int* pt;
 
  private:
-  std::unique_ptr<float[]> ni;
+  float* ni;
 };
 
 #endif

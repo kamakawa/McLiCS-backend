@@ -5,51 +5,45 @@
 #include <algorithm>
 #include <iostream>
 #include <map>
-#include <memory>
 #include <string>
 #include <vector>
-#include <fstream>  // ✅ Para std::ifstream
+#include <memory> 
 
 #include "../include/anchoring.h"
 #include "../include/geometry.h"
 #include "../include/parameters.h"
 #include "../include/potential.h"
 
-inline int MAX(int a, int b) { return (a > b) ? a : b; }
+#define MAX(a, b) (a > b ? a : b)
 
 Custom_Geometry::Custom_Geometry(int *pt, Parameters *params) : Geometry(params) {
   printf("Geometry: Custom\n");
 
-  ns = std::make_unique<float[]>(Nx * Ny * Nz * 3);
-  for (int i = 0; i < Nx * Ny * Nz * 3; i++) {
-    ns[i] = 0.0f;
-  }
-
-  pt = set_point_type_normals(pt, params);
+  ns = std::unique_ptr<float[]>(new float[Nx * Ny * Nz * 3]()); 
   
-  surfaces.clear();
-
-  if (params->XBoundtype == "free")
+  pt = set_point_type_normals(pt, params); 
+  
+  if (strcasecmp(params->XBoundtype.c_str(), "free") == 0)
     params->XBound = &Free_Boundary;
-  else if (params->XBoundtype == "periodic")
+  else if (strcasecmp(params->XBoundtype.c_str(), "periodic") == 0)
     params->XBound = &Periodic_Boundary;
   else {
     fprintf(stderr, "X boundary condition: %s not implemented \n", params->XBoundtype.c_str());
     exit(2);
   }
 
-  if (params->YBoundtype == "free")
+  if (strcasecmp(params->YBoundtype.c_str(), "free") == 0)
     params->YBound = &Free_Boundary;
-  else if (params->YBoundtype == "periodic")
+  else if (strcasecmp(params->YBoundtype.c_str(), "periodic") == 0)
     params->YBound = &Periodic_Boundary;
   else {
     fprintf(stderr, "Y boundary condition: %s not implemented \n", params->YBoundtype.c_str());
     exit(2);
   }
 
-  if (params->ZBoundtype == "free")
+  if (strcasecmp(params->ZBoundtype.c_str(), "free") == 0)
     params->ZBound = &Free_Boundary;
-  else if (params->ZBoundtype == "periodic")
+  else if (strcasecmp(params->ZBoundtype.c_str(), "periodic") == 0)
     params->ZBound = &Periodic_Boundary;
   else {
     fprintf(stderr, "Z boundary condition: %s not implemented \n", params->ZBoundtype.c_str());
@@ -63,105 +57,85 @@ Custom_Geometry::Custom_Geometry(int *pt, Parameters *params) : Geometry(params)
 }
 
 int *Custom_Geometry::set_point_type_normals(int *pt, Parameters *params) {
-  std::ifstream bound_input(params->bound_file_name);
-  if (!bound_input.is_open()) {
-    fprintf(stderr, "Cannot open boundary file: %s\n", params->bound_file_name.c_str());
+  int i, nn;
+  int max_point_kind = 0, line_number, read_tester = 1;
+  int NoV, pos_nx, pos_ny, pos_nz, pos_pt;
+  
+  FILE *bound_input = fopen(params->bound_file_name.c_str(), "r");
+  if (bound_input == 0) {
+    perror(params->bound_file_name.c_str());
     exit(2);
   }
-  
   printf("Reading boundaries from %s\n", params->bound_file_name.c_str());
+
+  std::unique_ptr<char[]> line_ptr(new char[500]); 
+  char* line = line_ptr.get();
   
-  std::string line;
-  int NoV = 0;
-  int pos_nx = -1, pos_ny = -1, pos_nz = -1, pos_pt = -1;
+  std::string testline;
+  line = fgets(line, 500, bound_input);
+  testline = line;
+  NoV = 1 + ((int) std::count(testline.begin(), testline.end(), ','));
   
-  if (std::getline(bound_input, line)) {
-    NoV = 1 + static_cast<int>(std::count(line.begin(), line.end(), ','));
-    
-    size_t start = 0, end = 0;
-    int col_index = 0;
-    
-    while (end != std::string::npos) {
-      end = line.find(',', start);
-      std::string column_name = line.substr(start, end - start);
-      
-      if (column_name == "nx") pos_nx = col_index;
-      else if (column_name == "ny") pos_ny = col_index;
-      else if (column_name == "nz") pos_nz = col_index;
-      else if (column_name == "pt") pos_pt = col_index;
-      
-      start = (end == std::string::npos) ? end : end + 1;
-      col_index++;
-    }
+  std::unique_ptr<float[]> var_ptr(new float[NoV]);
+  float* var = var_ptr.get();
+  
+  char strvar[500];
+  rewind(bound_input);
+  for (i = 0; i < NoV; i++) {
+    char names[500];
+    int dummy = fscanf(bound_input, "%[^,\n ],", names);
+    if (strcasecmp(names, "nx") == 0)
+      pos_nx = i;
+    if (strcasecmp(names, "ny") == 0)
+      pos_ny = i;
+    if (strcasecmp(names, "nz") == 0)
+      pos_nz = i;
+    if (strcasecmp(names, "pt") == 0)
+      pos_pt = i;
+  }
+  printf("Using the positions of nx %d ny %d nz %d and pt %d.\n ", pos_nx, pos_ny, pos_nz, pos_pt);
+  line_number = 0;
+  line = fgets(line, 500, bound_input);
+  for (i = 0; i < Nx * Ny * Nz; i++) {
+    pt[i] = 1;
   }
   
-  if (pos_nx == -1 || pos_ny == -1 || pos_nz == -1 || pos_pt == -1) {
-    fprintf(stderr, "Missing required columns in boundary file\n");
-    exit(10);
-  }
-  
-  printf("Using the positions of nx %d ny %d nz %d and pt %d.\n", pos_nx, pos_ny, pos_nz, pos_pt);
-  
-  for (int i = 0; i < Nx * Ny * Nz; i++) {
-    pt[i] = 0; 
-  }
-  
-  int line_number = 1; 
-  int max_point_kind = 0;
-  
-  while (std::getline(bound_input, line)) {
-    if (line.empty()) continue;
-    
-    std::vector<float> var;
-    size_t start = 0, end = 0;
-    
-    while (end != std::string::npos) {
-      end = line.find(',', start);
-      std::string value_str = line.substr(start, end - start);
-      if (!value_str.empty()) {
-        var.push_back(std::stof(value_str));
-      }
-      start = (end == std::string::npos) ? end : end + 1;
+  float *ns_ptr = ns.get(); 
+
+  while (read_tester != EOF) {
+    for (nn = 0; nn < NoV; nn++) {
+      read_tester = fscanf(bound_input, "%[^,\n ],", strvar);
+      if (read_tester == 1)
+        var[nn] = atof(strvar);
+      else
+        continue;
     }
-    
-    if (var.size() != NoV) {
-      fprintf(stderr, "Invalid number of columns at line %d\n", line_number);
-      continue;
-    }
-    
-    int ii = static_cast<int>(var[0]);
-    int jj = static_cast<int>(var[1]);
-    int kk = static_cast<int>(var[2]);
-    
+    int ii = (int)var[0];
+    int jj = (int)var[1];
+    int kk = (int)var[2];
+    line_number++;
     if (ii >= Nx || jj >= Ny || kk >= Nz) {
       fprintf(stderr, "Point out of the simulation box at line %d\n", line_number);
       exit(10);
     }
-    
-    int point_type = static_cast<int>(var[pos_pt]);
-    if (point_type < 0) {
-      fprintf(stderr, 
-              "Negative Point Type found at line %d\n"
-              "Please, use 0 as empty space, 1 as bulk and 2+ as surface point type.\n",
+    if ((int)var[pos_pt] < 0) {
+      fprintf(stderr,
+              "Negative Point Type founde at line %d\n\
+Please, use 0 as empty space, 1 as bulk and 2+ as surface point type.\n",
               line_number);
       exit(10);
     }
-    
-    int idx = ((Ny * kk + jj) * Nx + ii);
-    ns[idx * 3 + 0] = var[pos_nx];
-    ns[idx * 3 + 1] = var[pos_ny];
-    ns[idx * 3 + 2] = var[pos_nz];
-    pt[idx] = point_type;
-    
-    max_point_kind = MAX(max_point_kind, point_type);
-    line_number++;
+    line = fgets(line, 500, bound_input);
+    ns_ptr[((Ny * kk + jj) * Nx + ii) * 3 + 0] = var[pos_nx];
+    ns_ptr[((Ny * kk + jj) * Nx + ii) * 3 + 1] = var[pos_ny];
+    ns_ptr[((Ny * kk + jj) * Nx + ii) * 3 + 2] = var[pos_nz];
+    pt[(Ny * kk + jj) * Nx + ii] = (int)var[pos_pt];
+    max_point_kind = MAX(max_point_kind, pt[(Ny * kk + jj) * Nx + ii]);
   }
-  
   nSurfaces = max_point_kind - 1;
   printf("%d boundary(boundaries) found in %s!!\n\n", nSurfaces, params->bound_file_name.c_str());
   fflush(stdout);
-  
-  Boundary_Init(params);
+  fclose(bound_input);
   
   return pt;
 }
@@ -176,13 +150,14 @@ float Custom_Geometry::lattice_Potential(const nni fullni[7]) {
     E += Geometry::third_nerghbours(fullni);
   if (params->neighbourKind > 1)
     E += Geometry::second_nerghbours(fullni);
-  
-  if (fullni[0].pt > 1) {
-    float s[3] = {ns[0], ns[1], ns[2]}; 
+    
+  if (fullni[0].pt > 1){
+    float s[3] = {fullni[7].x, fullni[7].y, fullni[7].z};
+    
     E += surfaces[fullni[0].pt - 2]->surface_potential(ni, s);
   }
   
-  if (params->elecA != 0) 
+  if (params->elecA!=0) 
     E += Potential::Electric_Potential(ni, *params);
 
   return E;

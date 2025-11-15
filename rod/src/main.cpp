@@ -5,6 +5,8 @@
 #include <string.h>
 
 #include <iostream>
+#include <memory> // Necessário para std::unique_ptr
+#include <string> // Necessário para std::string
 
 #include "../include/define.h"
 #include "../include/evolve.h"
@@ -16,21 +18,27 @@
 #include "../include/simulator.h"
 
 #define MCLICS_VERSION "0.1"
+
 int main(int argc, char **argv) {
   printf("### Starting McLiCS version: %s ###\n\n",MCLICS_VERSION);
   
-  // Alteração 1: Chamada de função do namespace IO
+  if (argc < 2) {
+      fprintf(stderr, "Uso: %s <input_file>\n", argv[0]);
+      return 1;
+  }
+
   Parameters params = IO::read_input_file(argv[1]);
   
-  // Alteração 2: Chamada de função do namespace IO
   IO::print_parameters(params);
   
-  char fname[1000];
-  simulator *sim = new simulator(&params);
+  std::unique_ptr<simulator> sim = std::make_unique<simulator>(&params);
+  
   sim->Setup_simmulation(params);
 
-  sprintf(fname, "ic.csv");
-  sim->print_n(fname, &params);
+  const std::string fname = "ic.csv"; 
+  
+  sim->print_n(fname, params); 
+  
   sim->evolve->run();
 
   return 0;

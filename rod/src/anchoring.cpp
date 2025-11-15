@@ -1,8 +1,9 @@
 #include "../include/anchoring.h"
 
 #include <gsl/gsl_rng.h>
-#include <cmath>
-#include <cstring>
+#include <math.h>
+#include <string.h>
+
 #include <iostream>
 #include <map>
 #include <vector>
@@ -23,3 +24,4 @@ void Anchoring::check_parameter(bool std_val, std::string parameter_name) {
     exit(1);
   }
 }
+

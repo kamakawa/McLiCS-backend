@@ -8,8 +8,10 @@
 #include "../include/define.h"
 #include "../include/parameters.h"
 
-// Alteração 1: Eigen_value_evaluation movida para o namespace OrderParameters
-float OrderParameters::Eigen_value_evaluation(float *mat, float *vec) {
+namespace OrderParameters {
+
+float Eigen_value_evaluation(float *mat, float *vec) {
+
   static gsl_eigen_symmv_workspace *w = gsl_eigen_symmv_alloc(3);
   static gsl_vector *eval = gsl_vector_alloc(3);
   static gsl_matrix *evec = gsl_matrix_alloc(3, 3);
@@ -28,23 +30,23 @@ float OrderParameters::Eigen_value_evaluation(float *mat, float *vec) {
   return (gsl_vector_get(eval, 0));
 }
 
-// Alteração 2: Matrice_constructor movida para o namespace OrderParameters
-void OrderParameters::Matrice_constructor(float *ni, float *Q, int *pt, Parameters params) {
-  // Alteração 3, 4, 5: Acesso a dimensões da grade aninhadas em 'lattice'
-  static const int Nx = params.lattice.Nx;
-  static const int Ny = params.lattice.Ny;
-  static const int Nz = params.lattice.Nz;
+void Matrice_constructor(float *ni, float *Q, int *pt, Parameters params) {
+  const int Nx = params.Nx;
+  const int Ny = params.Ny;
+  const int Nz = params.Nz;
   int points = 0;
   for (int i = 0; i < 9; i++) Q[i] = 0;
+  
   for (int i = 0; i < Nx; i++) {
     for (int j = 0; j < Ny; j++) {
       for (int k = 0; k < Nz; k++) {
-        if (pti(i, j, k)) {
-          Q[0] += 3.0 * (nix(i, j, k) * nix(i, j, k)) - 1;
-          Q[1] += 3.0 * (nix(i, j, k) * niy(i, j, k));
-          Q[2] += 3.0 * (nix(i, j, k) * niz(i, j, k));
-          Q[4] += 3.0 * (niy(i, j, k) * niy(i, j, k)) - 1;
-          Q[5] += 3.0 * (niy(i, j, k) * niz(i, j, k));
+        int pos = i + Nx * (j + Ny * k);
+        if (pt[pos]) {
+          Q[0] += 3.0 * (ni[pos * 3 + 0] * ni[pos * 3 + 0]) - 1;
+          Q[1] += 3.0 * (ni[pos * 3 + 0] * ni[pos * 3 + 1]);
+          Q[2] += 3.0 * (ni[pos * 3 + 0] * ni[pos * 3 + 2]);
+          Q[4] += 3.0 * (ni[pos * 3 + 1] * ni[pos * 3 + 1]) - 1;
+          Q[5] += 3.0 * (ni[pos * 3 + 1] * ni[pos * 3 + 2]);
           points++;
         }
       }
@@ -62,15 +64,13 @@ void OrderParameters::Matrice_constructor(float *ni, float *Q, int *pt, Paramete
   Q[8] = -Q[0] - Q[4];
 }
 
-// Alteração 6: lattice_order_parameter movida para o namespace OrderParameters
-float OrderParameters::lattice_order_parameter(float *ni, int *pt, int i, int j, int k, Parameters params) {
-  // Alteração 7, 8, 9: Acesso a dimensões da grade aninhadas em 'lattice'
-  static int Nx = params.lattice.Nx;
-  static int Ny = params.lattice.Ny;
-  static int Nz = params.lattice.Nz;
+float lattice_order_parameter(float *ni, int *pt, int i, int j, int k, Parameters params) {
+  const int Nx = params.Nx;
+  const int Ny = params.Ny;
+  const int Nz = params.Nz;
   int points = 0;
   float Q[9];
-  for (int i = 0; i < 5; i++) Q[i] = 0;
+  for (int l = 0; l < 5; l++) Q[l] = 0;
 
   for (int di = -1; di < 2; di++) {
     for (int dj = -1; dj < 2; dj++) {
@@ -79,11 +79,16 @@ float OrderParameters::lattice_order_parameter(float *ni, int *pt, int i, int j,
         int ii = i + di;
         int jj = j + dj;
         int kk = k + dk;
-        // Alteração 10, 11, 12: Acesso a funções de fronteira e dimensões aninhadas em 'lattice'
-        if ((params.lattice.XBound(ii, Nx)) && (params.lattice.YBound(jj, Ny)) && (params.lattice.ZBound(kk, Nz)) && pti(ii, jj, kk) != 0) {
+        
+        int ii_ref = ii;
+        int jj_ref = jj;
+        int kk_ref = kk;
+
+        if ((params.XBound(ii_ref, Nx)) && (params.YBound(jj_ref, Ny)) && (params.ZBound(kk_ref, Nz)) && pt[ii_ref + Nx * (jj_ref + Ny * kk_ref)] != 0) {
+          int pos = ii_ref + Nx * (jj_ref + Ny * kk_ref);
           for (int l = 0; l < 3; l++) {
             for (int m = 0; m <= l; m++) {
-              Q[3 * m + l] += 3.0 * (ni[(ii + Nx * (jj + Ny * kk)) * 3 + l] * ni[(ii + Nx * (jj + Ny * kk)) * 3 + m]);
+              Q[3 * m + l] += 3.0 * (ni[pos * 3 + l] * ni[pos * 3 + m]);
             }
             Q[4 * l] -= 1;
           }
@@ -118,13 +123,11 @@ float OrderParameters::lattice_order_parameter(float *ni, int *pt, int i, int j,
   return (gsl_vector_get(eval, 0));
 }
 
-// Alteração 13: V_Order_parameter_evaluation movida para o namespace OrderParameters
-float OrderParameters::V_Order_parameter_evaluation(float *mat_b, float *mat_c, float *vec_b, float *vec_c, float PoB) {
+float V_Order_parameter_evaluation(float *mat_b, float *mat_c, float *vec_b, float *vec_c, float PoB) {
   return ((-VMV(mat_b, vec_c) - VMV(mat_c, vec_b) + VMV(mat_c, vec_c) + PoB) / 3.0);
 }
 
-// Alteração 14: C_Vector_evaluation movida para o namespace OrderParameters
-void OrderParameters::C_Vector_evaluation(float *vec_n, float *vec_b, float *vec_c) {
+void C_Vector_evaluation(float *vec_n, float *vec_b, float *vec_c) {
   vec_c[0] = vec_n[1] * vec_b[2] - vec_b[1] * vec_n[2];
   vec_c[1] = vec_n[2] * vec_b[0] - vec_b[2] * vec_n[0];
   vec_c[2] = vec_n[0] * vec_b[1] - vec_b[0] * vec_n[1];
@@ -136,8 +139,7 @@ void OrderParameters::C_Vector_evaluation(float *vec_n, float *vec_b, float *vec
   vec_c[2] /= unit;
 }
 
-// Alteração 15: VMV movida para o namespace OrderParameters
-float OrderParameters::VMV(float *M, float *V) {
+float VMV(float *M, float *V) {
   int a, b;
   float prod = 0;
 
@@ -148,14 +150,12 @@ float OrderParameters::VMV(float *M, float *V) {
   return (prod);
 }
 
-// Alteração 16: Polarization movida para o namespace OrderParameters
-float OrderParameters::Polarization(float *bi, Parameters params) {
+float Polarization(float *bi, Parameters params) {
   float P_temp[3], modulo;
   P_temp[0] = 0;
   P_temp[1] = 0;
   P_temp[2] = 0;
-  // Alteração 17, 18, 19: Acesso a dimensões da grade aninhadas em 'lattice'
-  float Nt = params.lattice.Nx * params.lattice.Ny * params.lattice.Nz;
+  float Nt = params.Nx * params.Ny * params.Nz;
   for (int j = 0; j < 3; j++) {
     for (int i = 0; i < Nt; i++) P_temp[j] += bi[3 * i + j];
     P_temp[j] /= Nt;
@@ -164,3 +164,5 @@ float OrderParameters::Polarization(float *bi, Parameters params) {
   modulo = sqrt(P_temp[0] * P_temp[0] + P_temp[1] * P_temp[1] + P_temp[2] * P_temp[2]);
   return (modulo);
 }
+
+} 
