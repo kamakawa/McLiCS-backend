@@ -27,42 +27,44 @@ void apply_Initial_Condidions(float *ni, int *pt, Parameters params) {
 }
 
 void random_ic(float *ni, int *pt, Parameters params) {
-  int Nx = params.Nx;
-  int Ny = params.Ny;
-  int Nz = params.Nz;
-  double nx, ny; // Removido componente ny
-  gsl_rng *rng;
-  gsl_rng_env_setup();
-  rng = gsl_rng_alloc(gsl_rng_taus);
-  gsl_rng_set(rng, 1);
-  
-  printf("Random initial conditions\n\n");
-  
-  for (int i = 0; i < params.Nx; i++) {
-    for (int j = 0; j < params.Ny; j++) {
-      for (int k = 0; k < params.Nz; k++) {
-        if (pti(i, j, k)) {
-          // Gerar um ângulo aleatório
-          double theta = gsl_rng_uniform(rng) * 2 * M_PI; // ângulo entre 0 e 2π
-          
-          // Calcula os componentes de direção com base no ângulo
-          nx = cos(theta); // Componente X
-          ny = sin(theta); // Componente Z
-          
-          // Atribuição dos valores
-          nix(i, j, k) = nx;
-          niy(i, j, k) = ny; // Mantemos niy como 0
-          niz(i, j, k) = 0; 
-        } else {
-          nix(i, j, k) = 0;
-          niy(i, j, k) = 0; // Mantém niy como 0
-          niz(i, j, k) = 1; // Valor fixo para o eixo Z
+    int Nx = params.Nx;
+    int Ny = params.Ny;
+    int Nz = params.Nz;
+    
+    gsl_rng *rng;
+    gsl_rng_env_setup();
+    rng = gsl_rng_alloc(gsl_rng_taus);
+    gsl_rng_set(rng, 1);
+    
+    printf("Random initial conditions - 3D UNIFORM ON SPHERE\n\n");
+    
+    for (int i = 0; i < Nx; i++) {
+        for (int j = 0; j < Ny; j++) {
+            for (int k = 0; k < Nz; k++) {
+                if (pti(i, j, k)) {
+                    double u = gsl_rng_uniform(rng);
+                    double v = gsl_rng_uniform(rng);
+                    
+                    double theta = acos(2.0 * u - 1.0);  
+                    double phi = 2.0 * M_PI * v;         
+                    
+                    double nx = sin(theta) * cos(phi);
+                    double ny = sin(theta) * sin(phi);
+                    double nz = cos(theta);
+                    
+                    nix(i, j, k) = nx;
+                    niy(i, j, k) = ny;
+                    niz(i, j, k) = nz;
+                } else {
+                    nix(i, j, k) = 0;
+                    niy(i, j, k) = 0;
+                    niz(i, j, k) = 1;
+                }
+            }
         }
-      }
     }
-  }
-  
-  gsl_rng_free(rng);
+    
+    gsl_rng_free(rng);
 }
 
 void homogeneous_ic(float *ni, int *pt, Parameters params) {

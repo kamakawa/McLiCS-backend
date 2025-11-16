@@ -22,9 +22,11 @@ simulator::~simulator() {
 }
 
 void simulator::Setup_simmulation(Parameters &params) {
-  int Nn = 3 * params.Nx * params.Ny * params.Nz;
+  int Nn = 3 * params.Nx * params.Ny * params.Nz;  
+  int Np = params.Nx * params.Ny * params.Nz;      
+  
   ni = (float *)calloc(Nn, sizeof(float));
-  pt = (int *)calloc(Nn, sizeof(int));
+  pt = (int *)calloc(Np, sizeof(int)); 
 
   if (strcasecmp(params.evol, "thermal") == 0) {
     evolve = new thermalEvolveN(ni, pt, &params);
@@ -81,7 +83,7 @@ void simulator::Setup_simmulation(Parameters &params) {
 
   evolve->geometry->Boundary_Init(&params);
   evolve->check_Points(pt, params);
-  apply_Initial_Condidions(ni, pt, params);
+  apply_Initial_Conditions(ni, pt, params);
 
   if (strcasecmp(params.potential, "ll") * strcasecmp(params.potential, "lebwohl-lahser") == 0) {
     evolve->geometry->bulk_potential = &Bulk_Energy_Lebwohl_Lasher;

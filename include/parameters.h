@@ -3,36 +3,33 @@
 #include <gsl/gsl_rng.h>
 
 #include <map>
-#include <string> 
-#include <functional> 
+#include <string>
 
 enum parameter_status { set,
                         unset };
 
 struct Parameters {
   //lattice Variables
-  std::string geometry = "bulk"; 
+  char geometry[20] = "bulk";
   int Nx = 16;
   int Ny = 16;
   int Nz = 16;
-  std::string XBoundtype = "free"; 
-  std::string YBoundtype = "free"; 
-  std::string ZBoundtype = "free"; 
-
-  // Alterado de ponteiro de função para std::function (1-B)
-  std::function<int(int&, int)> XBound; 
-  std::function<int(int&, int)> YBound;
-  std::function<int(int&, int)> ZBound;
+  char XBoundtype[20] = "free";
+  char YBoundtype[20] = "free";
+  char ZBoundtype[20] = "free";
+  int (*XBound)(int&, int);
+  int (*YBound)(int&, int);
+  int (*ZBound)(int&, int);
 
   //Surface Variables
-  std::string bound_file_name; 
+  char bound_file_name[100];
   std::map<int, float> theta_s;
   std::map<int, float> phi_s;
   std::map<int, float> W;
   std::map<int, std::string> anchoring_type;
 
   //potential Variables
-  std::string potential = "ll"; 
+  char potential[20] = "ll";
   float A = 1.0;
   float B1 = 0.04;
   float B2 = 0.4;
@@ -48,15 +45,15 @@ struct Parameters {
   float ghrl_sigma = 0;
 
   //MC Variables
-  std::string evol = "thermal";
+  char evol[20] = "thermal";
   int MCS = 1e2;
   int MCT = 1e2;
   int fn = 1;
   int first_file = 0;
 
   //IC variables
-  std::string ic = "random";
-  std::string ic_file;
+  char ic[50] = "random";
+  char ic_file[100];
   float phi_0 = 0;
   float theta_0 = 0;
   float p0_i = 0;

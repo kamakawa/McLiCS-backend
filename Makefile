@@ -1,64 +1,65 @@
-# Nome dos executáveis
-PROGRAM_CPU := mc_sim_cpu
+ PROGRAM := mc_sim
+########### Gnu:
+ COMPILER := g++ 
+ GPUCOMP  := nvcc
+ FLAGS    :=  -O3  -fopenmp -static
+ GPUFLAGS    :=  -O3
+ #-Wno-unused-result -Wno-format
+ LIB := -lm  -lgsl -lgslcblas  -lgomp 
+# LIB := -lm  -lgslcblas  -lgsl -lgomp 
+USECUDA:=-D CUDA__="CUDA"
+ifeq (,$(shell which nvcc))
+	.DEFAULT_GOAL=CPU
+	USECUDA:= 
+endif
+############ Intel 2 :
+#COMPILER = icpc
+#FLAGS= -ipo -O3  -no-prec-div -xAVX -simd -qopenmp -fp-model fast=2 -static
+#LIB = -mkl -lgsl 
 
-# Diretórios
-SRCDIR := rod/src
-BUILDDIR := rod/build
-INCDIR := rod/include
 
-# Compilador e bibliotecas
-COMPILER := g++
-FLAGS := -O3 -fopenmp -static
-LIB := -lm -lgsl -lgslcblas -lgomp
-HEADER_FLAGS := -I$(INCDIR)
+############ Intel Debug :
 
-# Arquivos de código-fonte
-# Lista TODOS os arquivos .cpp no diretório src, excluindo o simulatorGPU (se existir)
-CPPS_ALL := $(shell find $(SRCDIR) -name '*.cpp')
-CPPS_CPU := $(filter-out $(SRCDIR)/simulatorGPU.cpp, ${CPPS_ALL})
+#COMPILER = icpc
+#FLAGS= -O0 -g -static
+#LIB = -mkl -lgsl 
 
-# Gerar a lista de arquivos de objeto (.o)
-# Transforma cada caminho de .cpp em um caminho de .o no diretório BUILDDIR
-OBJS_CPU := $(patsubst $(SRCDIR)/%.cpp,$(BUILDDIR)/%.o,${CPPS_CPU})
 
-# Lista de todos os headers para dependência de compilação
-HEADER_ALL := $(wildcard $(INCDIR)/*.h)
 
-# Define o alvo padrão
-.DEFAULT_GOAL := CPU
+ 
+CPPS := $(wildcard src/*.cpp)
+CUDA := $(wildcard src/*.cu)
+HEADER := $(wildcard include/*.h)
+OBJS  := $(patsubst src/%.cpp,build/%.o,${CPPS})
+CBJS  := $(patsubst src/%.cu,build/%.cuda.o,${CUDA})
+DBGOBJS  := $(patsubst src/%.cpp,build/%dbg.o,${CPPS})
+DBGCBJS  := $(patsubst src/%.cu,build/%dbg.cuda.o,${CUDA})
 
-# ----------------------------------------------------------------------
-# Regras de Build
-# ----------------------------------------------------------------------
+all:${PROGRAM}
 
-# Regra para compilar e vincular a versão de CPU (PROGRAM_CPU)
-CPU: ${PROGRAM_CPU}
+${PROGRAM}: ${OBJS} ${CBJS}
+	@${GPUCOMP} ${GPUFLAGS} $(filter-out  build/simulator.o,${OBJS}) ${CBJS} ${LIB} -o ${PROGRAM}
+CPU:  $(filter-out  build/simulatorGPU.o,${OBJS})
+	@${COMPILER} ${FLAGS} $(filter-out  build/simulatorGPU.o,${OBJS}) ${LIB} -o ${PROGRAM}
+${OBJS}: build/%.o: src/%.cpp ${HEADER} | build
+	${COMPILER} ${FLAGS} -c $< -o $@ ${USECUDA}
+${CBJS}: build/%.cuda.o: src/%.cu  | build
+	${GPUCOMP}  ${GPUFLAGS} -dc -c  $< -o $@ -D CUDA__="CUDA"
+	
+build:
+	@mkdir build
+debug:	${DBGOBJS} ${DBGCBJS}
+	${GPUCOMP}  -O0 -g -Xcompiler -fopenmp  -lineinfo $(filter-out -O% -fast -static, ${GPUFLAGS}) $(filter-out  build/simulatordbg.o,${DBGOBJS}) ${DBGCBJS}  ${LIB} -o ${PROGRAM}_debug
+	#@rm build/*dbg.o
+${DBGOBJS}: build/%dbg.o: src/%.cpp  | build
+	${COMPILER}  -O0 -g $(filter-out -O% -fast, ${FLAGS}) -c $< -o $@ ${USECUDA}
+${DBGCBJS}: build/%dbg.cuda.o: src/%.cu | build
+	${GPUCOMP}  -O0 -g $(filter-out -O% -fast, ${GPUFLAGS}) -lineinfo -dc -c $< -o $@ ${USECUDA}
+$(patsubst %.o,%dbg.o,${OBJS}): ${HEADER}
 
-${PROGRAM_CPU}: ${OBJS_CPU}
-	@echo "Vincular objetos para a versão de CPU..."
-	@${COMPILER} ${FLAGS} ${OBJS_CPU} ${LIB} -o $@
+renew: clean	${PROGRAM}
 
-# Regra para compilar arquivos C++ em .o
-# O pipe '| $(BUILDDIR)' garante que o diretório exista antes de compilar
-$(BUILDDIR)/%.o: $(SRCDIR)/%.cpp ${HEADER_ALL} | $(BUILDDIR)
-	@echo "Compilando arquivo C++ $<"
-	@${COMPILER} ${FLAGS} ${HEADER_FLAGS} -c $< -o $@
-
-# Cria o diretório de build
-$(BUILDDIR):
-	@mkdir -p $(BUILDDIR)
-
-# ----------------------------------------------------------------------
-# Regras de Limpeza
-# ----------------------------------------------------------------------
-
-# Limpa o projeto
 clean:
-	@echo "Limpando arquivos do projeto..."
-	@rm -f ${PROGRAM_CPU}
-	@rm -fr ${BUILDDIR}
-
-# Alvo para limpar e recompilar
-renew: clean CPU
-
-# Fim do Makefile
+	@rm -f ${PROGRAM}
+	@rm -fr build
+	@rm -f *.o

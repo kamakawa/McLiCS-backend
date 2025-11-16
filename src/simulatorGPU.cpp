@@ -89,7 +89,7 @@ void simulator::Setup_simmulation(Parameters &params) {
   }
   evolve->geometry->Boundary_Init(&params);
   evolve->check_Points(pt, params);
-  apply_Initial_Condidions(ni, pt, params);
+  apply_Initial_Conditions(ni, pt, params);
 
   if (strcasecmp(params.potential, "ll") * strcasecmp(params.potential, "lebwohl-lahser") == 0) {
     evolve->geometry->bulk_potential = &Bulk_Energy_Lebwohl_Lasher;

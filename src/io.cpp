@@ -247,7 +247,7 @@ void setGHRL(Parameters &params) {
   params.ghrl_lambda = (Scale / 9) * (2 * k11 - 3 * k22 + k33);
   params.ghrl_mu = Scale * (k22 - k11);
   params.ghrl_rho = (Scale / 9) * (k11 - k33);
-  params.ghrl_nu = (Scale / 9) * (k11 - 3 * k22 - k33);
+  params.ghrl_nu = fabs((Scale / 9) * (k11 - 3 * k22 - k33));
   params.neighbourScale = (k11 + k33) / k22;
   printf("### Elastic parameters:\n");
   printf("k11 %g \nk22 %g \nk33 %g\n", k11, k22, k33);
