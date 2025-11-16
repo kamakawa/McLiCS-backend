@@ -12,9 +12,6 @@
 #include "../include/parameters.h"
 #include "../include/potential.h"
 
-// Usando os namespaces para compatibilidade com headers refatorados
-namespace FileIO {
-
 int print_n(char *fname, float *ni, Parameters params, int *pt) {
   int Nx = params.Nx;
   int Ny = params.Ny;
@@ -41,7 +38,6 @@ int print_n(char *fname, float *ni, Parameters params, int *pt) {
   fclose(output);
   return 0;
 }
-
 Parameters read_input_file(char *fname) {
   Parameters input_params;
   std::ifstream input_file;
@@ -58,7 +54,7 @@ Parameters read_input_file(char *fname) {
     std::cout << "Using \"" << fname << "\" as input file\n\n";
   }
   char parser[200];
-  char garbage[400];  // CORREÇÃO: array na stack em vez de malloc
+  char *garbage = (char *)malloc(400);
 
   while (input_file >> parser) {
     if (strcasecmp(parser, "nx") == 0) {
@@ -218,7 +214,6 @@ Parameters read_input_file(char *fname) {
 
   return input_params;
 }
-
 void print_parameters(Parameters params) {
   printf("###Using the following parameters for this simulation.###\n");
   printf("Nx  %d\n", params.Nx);
@@ -235,30 +230,12 @@ void print_parameters(Parameters params) {
   printf("Electric_Field_y  %g\n", params.elecY);
   printf("Electric_Field_z  %g\n", params.elecZ);
   printf("Dielectric_Anisotropy  %g\n", params.elecA);
+
+
+
   }
   printf("\n");
 }
-
-void check_error_bits(std::ifstream *f, char *parser) {
-  int stop = 0;
-  if (f->eof()) {
-    perror("stream eofbit. error state");
-    stop = 0;
-  }
-  if (f->fail()) {
-    std::cerr << "Invalid value to parameter " << parser << std::endl;
-    exit(1);
-  }
-  if (f->bad()) {
-    std::cerr << "stream badbit. error state" << std::endl;
-    exit(1);
-  }
-}
-
-} // namespace FileIO
-
-namespace SimulationSetup {
-
 void setGHRL(Parameters &params) {
   float k11 = params.k11;
   float k22 = params.k22;
@@ -290,4 +267,21 @@ void setGHRL(Parameters &params) {
   }
 }
 
-} // namespace SimulationSetup
+void check_error_bits(std::ifstream *f, char *parser) {
+  int stop = 0;
+  if (f->eof()) {
+    perror("stream eofbit. error state");
+    // EOF after std::getline() is not the criterion to stop processing
+    // data: In case there is data between the last delimiter and EOF,
+    // getline() extracts it and sets the eofbit.
+    stop = 0;
+  }
+  if (f->fail()) {
+    std::cerr << "Invalid value to parameter " << parser << std::endl;
+    exit(1);
+  }
+  if (f->bad()) {
+    std::cerr << "stream badbit. error state" << std::endl;
+    exit(1);
+  }
+}

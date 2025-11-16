@@ -2,13 +2,11 @@
 
 #include <gsl/gsl_eigen.h>
 #include <math.h>
+
 #include <iostream>
 
 #include "../include/define.h"
 #include "../include/parameters.h"
-
-// Usando o namespace para compatibilidade com header refatorado
-namespace ParameterOrder {
 
 float Eigen_value_evaluation(float *mat, float *vec) {
   static gsl_eigen_symmv_workspace *w = gsl_eigen_symmv_alloc(3);
@@ -16,7 +14,6 @@ float Eigen_value_evaluation(float *mat, float *vec) {
   static gsl_matrix *evec = gsl_matrix_alloc(3, 3);
   static gsl_matrix *m = gsl_matrix_alloc(3, 3);
   float temp;
-  
   for (int i = 0; i < 3; i++) {
     for (int j = 0; j < 3; j++) {
       temp = mat[3 * i + j];
@@ -26,10 +23,7 @@ float Eigen_value_evaluation(float *mat, float *vec) {
 
   gsl_eigen_symmv(m, eval, evec, w);
   gsl_eigen_symmv_sort(eval, evec, GSL_EIGEN_SORT_VAL_DESC);
-  
-  for (int i = 0; i < 3; i++) 
-    vec[i] = gsl_matrix_get(evec, i, 0);
-  
+  for (int i = 0; i < 3; i++) vec[i] = gsl_matrix_get(evec, i, 0);
   return (gsl_vector_get(eval, 0));
 }
 
@@ -38,10 +32,7 @@ void Matrice_constructor(float *ni, float *Q, int *pt, Parameters params) {
   static const int Ny = params.Ny;
   static const int Nz = params.Nz;
   int points = 0;
-  
-  for (int i = 0; i < 9; i++) 
-    Q[i] = 0;
-  
+  for (int i = 0; i < 9; i++) Q[i] = 0;
   for (int i = 0; i < Nx; i++) {
     for (int j = 0; j < Ny; j++) {
       for (int k = 0; k < Nz; k++) {
@@ -74,20 +65,15 @@ float lattice_order_parameter(float *ni, int *pt, int i, int j, int k, Parameter
   static int Nz = params.Nz;
   int points = 0;
   float Q[9];
-  
-  for (int i = 0; i < 5; i++) 
-    Q[i] = 0;
+  for (int i = 0; i < 5; i++) Q[i] = 0;
 
   for (int di = -1; di < 2; di++) {
     for (int dj = -1; dj < 2; dj++) {
       for (int dk = -1; dk < 2; dk++) {
-        if (abs(di) + abs(dj) + abs(dk) > 1) 
-          continue;
-        
+        if (abs(di) + abs(dj) + abs(dk) > 1) continue;
         int ii = i + di;
         int jj = j + dj;
         int kk = k + dk;
-        
         if ((params.XBound(ii, Nx)) && (params.YBound(jj, Ny)) && (params.ZBound(kk, Nz)) && pti(ii, jj, kk) != 0) {
           for (int l = 0; l < 3; l++) {
             for (int m = 0; m <= l; m++) {
@@ -115,7 +101,6 @@ float lattice_order_parameter(float *ni, int *pt, int i, int j, int k, Parameter
   static gsl_vector *eval = gsl_vector_alloc(3);
   static gsl_matrix *evec = gsl_matrix_alloc(3, 3);
   static gsl_matrix *m = gsl_matrix_alloc(3, 3);
-  
   for (int i = 0; i < 3; i++) {
     for (int j = 0; j < 3; j++) {
       gsl_matrix_set(m, j, i, Q[3 * i + j]);
@@ -149,8 +134,7 @@ float VMV(float *M, float *V) {
 
   for (a = 0; a < 3; a++) {
     prod += V[a] * V[a] * M[4 * a];
-    for (b = 0; b < a; b++) 
-      prod += 2 * V[a] * V[b] * M[a + 3 * b];
+    for (b = 0; b < a; b++) prod += 2 * V[a] * V[b] * M[a + 3 * b];
   }
   return (prod);
 }
@@ -161,15 +145,11 @@ float Polarization(float *bi, Parameters params) {
   P_temp[1] = 0;
   P_temp[2] = 0;
   float Nt = params.Nx * params.Ny * params.Nz;
-  
   for (int j = 0; j < 3; j++) {
-    for (int i = 0; i < Nt; i++) 
-      P_temp[j] += bi[3 * i + j];
+    for (int i = 0; i < Nt; i++) P_temp[j] += bi[3 * i + j];
     P_temp[j] /= Nt;
   }
 
   modulo = sqrt(P_temp[0] * P_temp[0] + P_temp[1] * P_temp[1] + P_temp[2] * P_temp[2]);
   return (modulo);
 }
-
-} // namespace ParameterOrder

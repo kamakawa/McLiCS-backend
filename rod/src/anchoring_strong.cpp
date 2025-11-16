@@ -1,6 +1,7 @@
 #include <gsl/gsl_rng.h>
 #include <math.h>
 #include <string.h>
+
 #include <iostream>
 #include <map>
 #include <vector>
@@ -14,29 +15,24 @@ Strong_Anchoring::Strong_Anchoring(Parameters *params, int id) {
   this->params = params;
   // Asserting anchoring energy is set and getting its value:
   printf("seting surface %d: %s\n", id, name);
-  
   try {
     W = params->W.at(id);
     std::cout << "W= " << W << ".\n";
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "W");
   }
-  
   try {
     phi_s = params->phi_s.at(id);
     std::cout << "phi_s= " << phi_s << ".\n";
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "phi_s");
   }
-  
   try {
     theta_s = params->theta_s.at(id);
     std::cout << "theta_s= " << theta_s << ".\n";
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "theta_s");
   }
-  
-  // NOTA: Strong Anchoring não faz reescala por neighbourKind
   printf("\n");
 }
 
@@ -54,29 +50,24 @@ Strong_Anchoring_GHRL::Strong_Anchoring_GHRL(Parameters *params, int id) {
   this->params = params;
   // Asserting anchoring energy is set and getting its value:
   printf("seting surface %d: %s\n", id, name);
-  
   try {
     W = params->W.at(id);
     std::cout << "W= " << W << ".\n";
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "W");
   }
-  
   try {
     phi_s = params->phi_s.at(id);
     std::cout << "phi_s= " << phi_s << ".\n";
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "phi_s");
   }
-  
   try {
     theta_s = params->theta_s.at(id);
     std::cout << "theta_s= " << theta_s << ".\n";
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "theta_s");
   }
-  
-  // NOTA: Strong Anchoring GHRL também não faz reescala por neighbourKind
   printf("\n");
 }
 

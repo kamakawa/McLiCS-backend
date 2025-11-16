@@ -1,9 +1,11 @@
 #include <gsl/gsl_rng.h>
 #include <string.h>
+
 #include <iostream>
 
 #include "../include/define.h"
 #include "../include/evolve.h"
+//~ #include "../include/evolve.cuh"
 #include "../include/ic.h"
 #include "../include/io.h"
 #include "../include/monte_carlo.h"
@@ -17,20 +19,6 @@ simulator::simulator(Parameters *params) : Nx(params->Nx), Ny(params->Ny), Nz(pa
 }
 
 simulator::~simulator() {
-  // CORREÇÃO: Liberar memória alocada no construtor
-  if (ni != nullptr) {
-    free(ni);
-    ni = nullptr;
-  }
-  if (pt != nullptr) {
-    free(pt);
-    pt = nullptr;
-  }
-  // CORREÇÃO: Liberar objeto evolve se existir
-  if (evolve != nullptr) {
-    delete evolve;
-    evolve = nullptr;
-  }
 }
 
 void simulator::Setup_simmulation(Parameters &params) {
@@ -38,7 +26,6 @@ void simulator::Setup_simmulation(Parameters &params) {
   ni = (float *)calloc(Nn, sizeof(float));
   pt = (int *)calloc(Nn, sizeof(int));
 
-  // Configuração do tipo de evolução
   if (strcasecmp(params.evol, "thermal") == 0) {
     evolve = new thermalEvolveN(ni, pt, &params);
   } else if (strcasecmp(params.evol, "step") == 0) {
@@ -52,7 +39,6 @@ void simulator::Setup_simmulation(Parameters &params) {
     exit(2);
   }
 
-  // Configuração da geometria
   if (strcasecmp(params.geometry, "bulk") == 0) {
     evolve->geometry = new Bulk_Geometry(pt, &params);
   } else if (strcasecmp(params.geometry, "slab") == 0) {
@@ -66,42 +52,37 @@ void simulator::Setup_simmulation(Parameters &params) {
     exit(2);
   }
 
-  // Configuração das condições de contorno X
-  if (strcasecmp(params.XBoundtype, "free") == 0) {
+  if (strcasecmp(params.XBoundtype, "free") == 0)
     params.XBound = &Free_Boundary;
-  } else if (strcasecmp(params.XBoundtype, "periodic") == 0) {
+  else if (strcasecmp(params.XBoundtype, "periodic") == 0)
     params.XBound = &Periodic_Boundary;
-  } else {
+  else {
     fprintf(stderr, "X boundary condition: %s not implemented \n", params.XBoundtype);
     exit(2);
   }
 
-  // Configuração das condições de contorno Y
-  if (strcasecmp(params.YBoundtype, "free") == 0) {
+  if (strcasecmp(params.YBoundtype, "free") == 0)
     params.YBound = &Free_Boundary;
-  } else if (strcasecmp(params.YBoundtype, "periodic") == 0) {
+  else if (strcasecmp(params.YBoundtype, "periodic") == 0)
     params.YBound = &Periodic_Boundary;
-  } else {
+  else {
     fprintf(stderr, "Y boundary condition: %s not implemented \n", params.YBoundtype);
     exit(2);
   }
 
-  // Configuração das condições de contorno Z
-  if (strcasecmp(params.ZBoundtype, "free") == 0) {
+  if (strcasecmp(params.ZBoundtype, "free") == 0)
     params.ZBound = &Free_Boundary;
-  } else if (strcasecmp(params.ZBoundtype, "periodic") == 0) {
+  else if (strcasecmp(params.ZBoundtype, "periodic") == 0)
     params.ZBound = &Periodic_Boundary;
-  } else {
+  else {
     fprintf(stderr, "Z boundary condition: %s not implemented \n", params.ZBoundtype);
     exit(2);
   }
 
-  // Inicialização final
   evolve->geometry->Boundary_Init(&params);
   evolve->check_Points(pt, params);
   apply_Initial_Condidions(ni, pt, params);
 
-  // Configuração do potencial
   if (strcasecmp(params.potential, "ll") * strcasecmp(params.potential, "lebwohl-lahser") == 0) {
     evolve->geometry->bulk_potential = &Bulk_Energy_Lebwohl_Lasher;
     printf("Using lebwohl-lasher potential\n");
@@ -119,6 +100,23 @@ void simulator::Setup_simmulation(Parameters &params) {
 }
 
 int simulator::print_n(char *fname, Parameters *params) {
-  // CORREÇÃO: Reutiliza a função já existente e testada do namespace FileIO
-  return FileIO::print_n(fname, ni, *params, pt);
+  FILE *output = fopen(fname, "w");
+  if (output == 0) {
+    perror(fname);
+    return 1;
+  }
+  fprintf(output, "x,y,z,nx,ny,nz,s,pt\n");
+
+  for (int k = 0; k < params->Nz; k++) {
+    for (int j = 0; j < params->Ny; j++) {
+      for (int i = 0; i < params->Nx; i++) {
+        fprintf(output, "%d,%d,%d,%g,%g,%g,1,%d\n", i, j, k,
+                nix(i, j, k), niy(i, j, k), niz(i, j, k), pti(i, j, k));
+      }
+    }
+  }
+  printf("Snapshot saved in %s\n", fname);
+  fflush(stdout);
+  fclose(output);
+  return 0;
 }

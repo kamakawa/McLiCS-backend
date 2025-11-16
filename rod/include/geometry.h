@@ -1,10 +1,10 @@
 #ifndef GEOMETRY_H_
 #define GEOMETRY_H_
-
 #include <gsl/gsl_rng.h>
+
 #include <iostream>
-#include <memory>
 #include <vector>
+#include <memory> // Adicionado para std::unique_ptr (1-A)
 
 #include "../include/define.h"
 #include "../include/io.h"
@@ -12,91 +12,67 @@
 #include "../include/parameter_order.h"
 #include "../include/parameters.h"
 #include "../include/potential.h"
-#include "../include/anchoring.h"
 
-int Free_Boundary(int &ii, int NN);
-int Periodic_Boundary(int &ii, int NN);
+// Forward declaration de Anchoring é suficiente aqui, mas o cabeçalho original 
+// usava 'class Anchoring *', então mantemos a clareza.
 
 class Geometry {
  public:
   Geometry(Parameters *params);
-  virtual ~Geometry() = default;
+  // (1-B) Destrutor virtual para polimorfismo seguro.
+  virtual ~Geometry() = default; 
 
-  // Interface pública
+  int Nx, Ny, Nz;
+  std::vector<std::unique_ptr<class Anchoring>> surfaces; 
+  int nSurfaces;
+  
   float newman_neighbours(const nni fullni[]);
-  float second_neighbours(const nni fullni[]);
-  float third_neighbours(const nni fullni[]);
+  float second_nerghbours(const nni fullni[]);
+  float third_nerghbours(const nni fullni[]);
   void Boundary_Init(Parameters *params);
   
-  // Getters
-  int getNx() const { return Nx; }
-  int getNy() const { return Ny; }
-  int getNz() const { return Nz; }
-  int getNSurfaces() const { return nSurfaces; }
-  Parameters* getParams() const { return params; }
-  const std::vector<std::unique_ptr<Anchoring>>& getSurfaces() const { return surfaces; }
+  virtual int *set_point_type_normals(int *pt, Parameters *params) = 0;
+  virtual float latice_Potential(const nni ni[7]) = 0;
   
-  // Interface para bulk potential
-  float computeBulkPotential(float ni[3], float nj[3], Parameters& params, float rij[3], int nk);
-  void setBulkPotential(float (*potential_func)(float[3], float[3], Parameters&, float[3], int));
-
-  // Interface abstrata
-  virtual int* set_point_type_normals(int* pt, Parameters* params) = 0;
-  virtual float lattice_Potential(const nni ni[7]) = 0;
-  virtual float Electric_Potential(float ni[3], Parameters& params) = 0;
-
- protected:
-  // Métodos auxiliares protegidos para subclasses
-  void addSurface(std::unique_ptr<Anchoring> surface);
-  void initializeNS();
-
- private:
-  int Nx, Ny, Nz;
-  std::vector<std::unique_ptr<Anchoring>> surfaces;
-  int nSurfaces;
-  float (*bulk_potential)(float ni[3], float nj[3], Parameters& params, float rij[3], int nk);
-  std::unique_ptr<float[]> ns;
-  Parameters* params;
+  float (*bulk_potential)(float ni[3], float nj[3], Parameters *params, float rij[3], int nk);
+  float *ns;
+  Parameters *params;
 };
 
 class Bulk_Geometry : public Geometry {
  public:
-  Bulk_Geometry(int* pt, Parameters* params);
-  
+  Bulk_Geometry(int *pt, Parameters *params);
+  float latice_Potential(const nni ni[7]) override;
+
  private:
-  int* set_point_type_normals(int* pt, Parameters* params) override;
-  float lattice_Potential(const nni ni[7]) override;
-  float Electric_Potential(float ni[3], Parameters& params) override;
+  int *set_point_type_normals(int *pt, Parameters *params) override;
 };
 
 class Slab_Geometry : public Geometry {
  public:
-  Slab_Geometry(int* pt, Parameters* params);
-  
+  Slab_Geometry(int *pt, Parameters *params);
+  float latice_Potential(const nni ni[7]) override;
+
  private:
-  int* set_point_type_normals(int* pt, Parameters* params) override;
-  float lattice_Potential(const nni ni[7]) override;
-  float Electric_Potential(float ni[3], Parameters& params) override;
+  int *set_point_type_normals(int *pt, Parameters *params) override;
 };
 
 class Sphere_Geometry : public Geometry {
  public:
-  Sphere_Geometry(int* pt, Parameters* params);
-  
+  Sphere_Geometry(int *pt, Parameters *params);
+  float latice_Potential(const nni ni[7]) override;
+
  private:
-  int* set_point_type_normals(int* pt, Parameters* params) override;
-  float lattice_Potential(const nni ni[7]) override;
-  float Electric_Potential(float ni[3], Parameters& params) override;
+  int *set_point_type_normals(int *pt, Parameters *params) override;
 };
 
 class Custom_Geometry : public Geometry {
  public:
-  Custom_Geometry(int* pt, Parameters* params);
-  
+  Custom_Geometry(int *pt, Parameters *params);
+  float latice_Potential(const nni ni[7]) override;
+
  private:
-  int* set_point_type_normals(int* pt, Parameters* params) override;
-  float lattice_Potential(const nni ni[7]) override;
-  float Electric_Potential(float ni[3], Parameters& params) override;
+  int *set_point_type_normals(int *pt, Parameters *params) override;
 };
 
 #endif
