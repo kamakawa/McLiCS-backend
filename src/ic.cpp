@@ -18,8 +18,6 @@ void apply_Initial_Condidions(float *ni, int *pt, Parameters params) {
     read_ic_file(ni, pt, params);
   } else if (strcasecmp(params.ic, "cholesteric") == 0) {
     cholesteric_ic(ni, pt, params);
-  } else if (strcasecmp(params.ic, "lhelix") == 0) {
-    lhelix_ic(ni, pt, params);
   } else {
     fprintf(stderr, "initial condition %s not implemented \n", params.ic);
     exit(2);
@@ -27,44 +25,37 @@ void apply_Initial_Condidions(float *ni, int *pt, Parameters params) {
 }
 
 void random_ic(float *ni, int *pt, Parameters params) {
-    int Nx = params.Nx;
-    int Ny = params.Ny;
-    int Nz = params.Nz;
-    
-    gsl_rng *rng;
-    gsl_rng_env_setup();
-    rng = gsl_rng_alloc(gsl_rng_taus);
-    gsl_rng_set(rng, 1);
-    
-    printf("Random initial conditions - 3D UNIFORM ON SPHERE\n\n");
-    
-    for (int i = 0; i < Nx; i++) {
-        for (int j = 0; j < Ny; j++) {
-            for (int k = 0; k < Nz; k++) {
-                if (pti(i, j, k)) {
-                    double u = gsl_rng_uniform(rng);
-                    double v = gsl_rng_uniform(rng);
-                    
-                    double theta = acos(2.0 * u - 1.0);  
-                    double phi = 2.0 * M_PI * v;         
-                    
-                    double nx = sin(theta) * cos(phi);
-                    double ny = sin(theta) * sin(phi);
-                    double nz = cos(theta);
-                    
-                    nix(i, j, k) = nx;
-                    niy(i, j, k) = ny;
-                    niz(i, j, k) = nz;
-                } else {
-                    nix(i, j, k) = 0;
-                    niy(i, j, k) = 0;
-                    niz(i, j, k) = 1;
-                }
-            }
+  int Nx = params.Nx;
+  int Ny = params.Ny;
+  int Nz = params.Nz;
+  double nx, ny, nz;
+  gsl_rng *rng;
+  gsl_rng_env_setup();
+  rng = gsl_rng_alloc(gsl_rng_taus);
+  gsl_rng_set(rng, 1);
+  printf("Random initial conditions\n\n");
+  for (int i = 0; i < params.Nx; i++) {
+    for (int j = 0; j < params.Ny; j++) {
+      for (int k = 0; k < params.Nz; k++) {
+        if (pti(i, j, k)) {
+          //~ float theta=gsl_rng_uniform(rng);
+          //~ float phi=gsl_rng_uniform(rng);
+          //~ nix(i,j,k)=sin(phi*M_PI)*cos(2*theta*M_PI);
+          //~ niy(i,j,k)=sin(phi*M_PI)*sin(2*theta*M_PI);
+          //~ niz(i,j,k)=cos(phi*M_PI);
+          gsl_ran_dir_3d(rng, &nx, &ny, &nz);
+          nix(i, j, k) = nx;
+          niy(i, j, k) = ny;
+          niz(i, j, k) = nz;
+        } else {
+          nix(i, j, k) = 0;
+          niy(i, j, k) = 0;
+          niz(i, j, k) = 1;
         }
+      }
     }
-    
-    gsl_rng_free(rng);
+  }
+  gsl_rng_free(rng);
 }
 
 void homogeneous_ic(float *ni, int *pt, Parameters params) {
@@ -149,38 +140,6 @@ void cholesteric_ic(float *ni, int *pt, Parameters params) {
           nix(i, j, k) = sin(theta * M_PI / 180) * cos(phi);
           niy(i, j, k) = sin(theta * M_PI / 180) * sin(phi);
           niz(i, j, k) = cos(theta * M_PI / 180);
-        } else {
-          nix(i, j, k) = 0;
-          niy(i, j, k) = 0;
-          niz(i, j, k) = 1;
-        }
-      }
-    }
-  }
-}
-
-void lhelix_ic(float *ni, int *pt, Parameters params) {
-  int Nx = params.Nx;
-  int Ny = params.Ny;
-  int Nz = params.Nz;
-
-  float theta = params.theta_0;
-  float phi_0 = params.phi_0 * M_PI / 180;
-  float p0 = params.p0_i ? params.p0_i : params.p0;
-  float phi;
-  printf("Cholesteric initial conditions\n\n");
-  printf("p0:     %g\n", p0);
-  printf("phi0:   %g\n", phi_0);
-  printf("theta0: %g\n", theta);
-  for (int i = 0; i < Nx; i++) {
-    for (int j = 0; j < Ny; j++) {
-      for (int k = 0; k < Nz; k++) {
-        if (pti(i, j, k)) {
-          phi = phi_0 - 2 * M_PI * i / p0;
-
-          nix(i, j, k) = cos(theta * M_PI / 180);
-          niy(i, j, k) = sin(theta * M_PI / 180) * cos(phi);
-          niz(i, j, k) = sin(theta * M_PI / 180) * sin(phi);
         } else {
           nix(i, j, k) = 0;
           niy(i, j, k) = 0;

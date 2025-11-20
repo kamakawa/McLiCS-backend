@@ -10,8 +10,7 @@
 void random_ic(float *ni, int *pt, Parameters params);
 void homogeneous_ic(float *ni, int *pt, Parameters params);
 void cholesteric_ic(float *ni, int *pt, Parameters params);
-void lhelix_ic(float *ni, int *pt, Parameters params);
 void read_ic_file(float *ni, int *pt, Parameters params);
-void apply_Initial_Conditions(float *ni, int *pt, Parameters params);
+void apply_Initial_Condidions(float *ni, int *pt, Parameters params);
 
 #endif

@@ -210,7 +210,7 @@ void EvolveN::Monte_Carlo_Step(float &ang_var, gsl_rng **r) {
       //~ va=gsl_rng_uniform(r)*ang_var;
       va = (2 * gsl_rng_uniform(r[thread]) - 1) * ang_var;
       // Create a rotation candidate
-      rotation_type = 0.7;//gsl_rng_uniform(r[thread]);
+      rotation_type = gsl_rng_uniform(r[thread]);
       {
         if (rotation_type < 0.333) {
           nNew[0] = nix(i, j, k);
