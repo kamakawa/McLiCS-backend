@@ -1,32 +1,57 @@
+#include "../include/simulator.h"
+
+// --- System Includes ---
 #include <gsl/gsl_rng.h>
 #include <string.h>
-
 #include <iostream>
 
+// --- Project Includes ---
 #include "../include/define.h"
-#include "../include/evolve.cuh"
 #include "../include/evolve.h"
+#include "../include/evolve.cuh" // Cabecalho especifico para CUDA
 #include "../include/ic.h"
 #include "../include/io.h"
 #include "../include/monte_carlo.h"
 #include "../include/parameter_order.h"
 #include "../include/parameters.h"
 #include "../include/potential.h"
-#include "../include/simulator.h"
 
-simulator::simulator(Parameters *params) : Nx(params->Nx), Ny(params->Ny), Nz(params->Nz) {
+// Construtor
+simulator::simulator(Parameters *params) 
+    : Nx(params->Nx), Ny(params->Ny), Nz(params->Nz) {
   this->params = params;
+  
+  // Inicializa ponteiros como nulos para evitar erros no destrutor
+  this->ni = nullptr;
+  this->pt = nullptr;
+  this->evolve = nullptr;
 }
 
+// Destrutor (Limpeza de Memoria)
 simulator::~simulator() {
+  // Libera a geometria e a classe de evolucao
+  if (this->evolve != nullptr) {
+    if (this->evolve->geometry != nullptr) {
+      delete this->evolve->geometry;
+    }
+    delete this->evolve;
+  }
+
+  // Libera vetores de dados
+  if (this->ni != nullptr) free(this->ni);
+  if (this->pt != nullptr) free(this->pt);
 }
 
+// Configura a simulacao (CPU ou GPU)
 void simulator::Setup_simmulation(Parameters &params) {
-
   int Nn = 3 * params.Nx * params.Ny * params.Nz;
+  
+  // Alocacao de memoria
   ni = (float *)calloc(Nn, sizeof(float));
   pt = (int *)calloc(Nn, sizeof(int));
 
+  // --- Selecao do Metodo de Evolucao (CPU e GPU) ---
+  // CPU
   if (strcasecmp(params.evol, "thermal") == 0) {
     evolve = new thermalEvolveN(ni, pt, &params);
   } else if (strcasecmp(params.evol, "step") == 0) {
@@ -35,7 +60,9 @@ void simulator::Setup_simmulation(Parameters &params) {
     evolve = new quenchEvolveN(ni, pt, &params);
   } else if (strcasecmp(params.evol, "electric") == 0) {
     evolve = new electricEvolveN(ni, pt, &params);
-  } else if (strcasecmp(params.evol, "thermalGPU") == 0) {
+  } 
+  // GPU (CUDA)
+  else if (strcasecmp(params.evol, "thermalGPU") == 0) {
     evolve = new thermalEvolveNGPU(ni, pt, &params);
   } else if (strcasecmp(params.evol, "stepGPU") == 0) {
     evolve = new stepEvolveNGPU(ni, pt, &params);
@@ -43,11 +70,13 @@ void simulator::Setup_simmulation(Parameters &params) {
     evolve = new quenchEvolveNGPU(ni, pt, &params);
   } else if (strcasecmp(params.evol, "electricGPU") == 0) {
     evolve = new electricEvolveNGPU(ni, pt, &params);
-  } else {
-    printf("Evolve %s not defined, try thermal or step\n", params.evol);
+  } 
+  else {
+    printf("Evolve %s not defined, try thermal, step or *GPU variants\n", params.evol);
     exit(2);
   }
 
+  // --- Selecao da Geometria ---
   if (strcasecmp(params.geometry, "bulk") == 0) {
     evolve->geometry = new Bulk_Geometry(pt, &params);
   } else if (strcasecmp(params.geometry, "slab") == 0) {
@@ -61,52 +90,62 @@ void simulator::Setup_simmulation(Parameters &params) {
     exit(2);
   }
 
+  // --- Condicao de Contorno X ---
   if (strcasecmp(params.XBoundtype, "free") == 0)
-    params.XBound = &Free_Boundary;
+    params.XBound = &Potential::Free_Boundary;
   else if (strcasecmp(params.XBoundtype, "periodic") == 0)
-    params.XBound = &Periodic_Boundary;
+    params.XBound = &Potential::Periodic_Boundary;
   else {
     fprintf(stderr, "X boundary condition: %s not implemented \n", params.XBoundtype);
     exit(2);
   }
 
+  // --- Condicao de Contorno Y ---
   if (strcasecmp(params.YBoundtype, "free") == 0)
-    params.YBound = &Free_Boundary;
+    params.YBound = &Potential::Free_Boundary;
   else if (strcasecmp(params.YBoundtype, "periodic") == 0)
-    params.YBound = &Periodic_Boundary;
+    params.YBound = &Potential::Periodic_Boundary;
   else {
     fprintf(stderr, "Y boundary condition: %s not implemented \n", params.YBoundtype);
     exit(2);
   }
 
+  // --- Condicao de Contorno Z ---
   if (strcasecmp(params.ZBoundtype, "free") == 0)
-    params.ZBound = &Free_Boundary;
+    params.ZBound = &Potential::Free_Boundary;
   else if (strcasecmp(params.ZBoundtype, "periodic") == 0)
-    params.ZBound = &Periodic_Boundary;
+    params.ZBound = &Potential::Periodic_Boundary;
   else {
     fprintf(stderr, "Z boundary condition: %s not implemented \n", params.ZBoundtype);
     exit(2);
   }
+
+  // Inicializacao dos Pontos e Condicoes Iniciais
   evolve->geometry->Boundary_Init(&params);
   evolve->check_Points(pt, params);
   apply_Initial_Condidions(ni, pt, params);
 
-  if (strcasecmp(params.potential, "ll") * strcasecmp(params.potential, "lebwohl-lahser") == 0) {
-    evolve->geometry->bulk_potential = &Bulk_Energy_Lebwohl_Lasher;
+  // --- Selecao do Potencial ---
+  if ((strcasecmp(params.potential, "ll") == 0) || (strcasecmp(params.potential, "lebwohl-lahser") == 0)) {
+    evolve->geometry->bulk_potential = &Potential::Bulk_Energy_Lebwohl_Lasher;
     printf("Using lebwohl-lasher potential\n");
-  } else if (strcasecmp(params.potential, "ghrl") * strcasecmp(params.potential, "grun-hess") == 0) {
-    evolve->geometry->bulk_potential = &Bulk_Energy_GHRL;
+  } 
+  else if ((strcasecmp(params.potential, "ghrl") == 0) || (strcasecmp(params.potential, "grun-hess") == 0)) {
+    evolve->geometry->bulk_potential = &Potential::Bulk_Energy_GHRL;
     setGHRL(params);
     printf("Using gruhn-hess potential\n");
-  } else if (strcasecmp(params.potential, "pear") == 0) {
-    evolve->geometry->bulk_potential = &Bulk_Energy_Selinger_Pear;
+  } 
+  else if (strcasecmp(params.potential, "pear") == 0) {
+    evolve->geometry->bulk_potential = &Potential::Bulk_Energy_Selinger_Pear;
     printf("Using splay-bend potential\n");
-  } else {
+  } 
+  else {
     printf("%s potential not programed.\n Try lebwohl-lasher(LL), pear, BC or gruhn-hess(GHRL)", params.potential);
     exit(2);
   }
 }
 
+// Imprime Snapshot
 int simulator::print_n(char *fname, Parameters *params) {
   FILE *output = fopen(fname, "w");
   if (output == 0) {

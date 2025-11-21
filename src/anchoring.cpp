@@ -1,13 +1,14 @@
 #include "../include/anchoring.h"
 
+// --- System Includes ---
 #include <gsl/gsl_rng.h>
 #include <math.h>
 #include <string.h>
-
 #include <iostream>
 #include <map>
 #include <vector>
 
+// --- Project Includes ---
 #include "../include/parameters.h"
 #include "../include/potential.h"
 

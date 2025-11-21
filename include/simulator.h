@@ -1,7 +1,11 @@
-#include <gsl/gsl_rng.h>
+#ifndef SIMULATOR_H_
+#define SIMULATOR_H_
 
+// --- System Includes ---
+#include <gsl/gsl_rng.h>
 #include <iostream>
 
+// --- Project Includes ---
 #include "../include/define.h"
 #include "../include/evolve.h"
 #include "../include/io.h"
@@ -12,17 +16,22 @@
 
 class simulator {
  public:
+  // Construtor e Destrutor
   simulator(Parameters *params);
-  Parameters *params;
+  ~simulator();
+
+  // Metodos de Configuracao e Saida
   void Setup_simmulation(Parameters &params);
   int print_n(char *fname, Parameters *params);
-  int Nx, Ny, Nz;
-  //~ virtual void Setup_simmulation(parameters &params){};
-  //~ virtual int Evol(gsl_rng * rng, parameters *params){return 0;};
+
+  // Variaveis Publicas de Estado
+  Parameters *params;
   Evolve *evolve;
   int *pt;
-  ~simulator();
+  int Nx, Ny, Nz;
 
  private:
   float *ni;
 };
+
+#endif

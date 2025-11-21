@@ -91,7 +91,7 @@ float Sphere_Geometry::latice_Potential(const nni fullni[7]) {
     E += surfaces[fullni[0].pt - 2]->surface_potential(ni, s);
   
   if (params->elecA != 0) 
-    E += Electric_Potential(ni, params);
+    E += Potential::Electric_Potential(ni, params);
 
   return E;
 }

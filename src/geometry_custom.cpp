@@ -26,9 +26,9 @@ Custom_Geometry::Custom_Geometry(int *pt, Parameters *params) : Geometry(params)
 
   // --- Configuracao da Condicao de Contorno em X ---
   if (strcasecmp(params->XBoundtype, "free") == 0) {
-    params->XBound = &Free_Boundary;
+    params->XBound = &Potential::Free_Boundary;
   } else if (strcasecmp(params->XBoundtype, "periodic") == 0) {
-    params->XBound = &Periodic_Boundary;
+    params->XBound = &Potential::Periodic_Boundary;
   } else {
     fprintf(stderr, "X boundary condition: %s not implemented \n", params->XBoundtype);
     exit(2);
@@ -36,9 +36,9 @@ Custom_Geometry::Custom_Geometry(int *pt, Parameters *params) : Geometry(params)
 
   // --- Configuracao da Condicao de Contorno em Y ---
   if (strcasecmp(params->YBoundtype, "free") == 0) {
-    params->YBound = &Free_Boundary;
+    params->YBound = &Potential::Free_Boundary;
   } else if (strcasecmp(params->YBoundtype, "periodic") == 0) {
-    params->YBound = &Periodic_Boundary;
+    params->YBound = &Potential::Periodic_Boundary;
   } else {
     fprintf(stderr, "Y boundary condition: %s not implemented \n", params->YBoundtype);
     exit(2);
@@ -46,9 +46,9 @@ Custom_Geometry::Custom_Geometry(int *pt, Parameters *params) : Geometry(params)
 
   // --- Configuracao da Condicao de Contorno em Z ---
   if (strcasecmp(params->ZBoundtype, "free") == 0) {
-    params->ZBound = &Free_Boundary;
+    params->ZBound = &Potential::Free_Boundary;
   } else if (strcasecmp(params->ZBoundtype, "periodic") == 0) {
-    params->ZBound = &Periodic_Boundary;
+    params->ZBound = &Potential::Periodic_Boundary;
   } else {
     fprintf(stderr, "Z boundary condition: %s not implemented \n", params->ZBoundtype);
     exit(2);
@@ -180,7 +180,7 @@ float Custom_Geometry::latice_Potential(const nni fullni[7]) {
   }
   
   if (params->elecA != 0) 
-    E += Electric_Potential(ni, params);
+    E += Potential::Electric_Potential(ni, params);
 
   return E;
 }

@@ -73,8 +73,8 @@ int stepEvolveN::run() {
       E2 += tempE * tempE;
       E += tempE;
       
-      Matrice_constructor(ni, mat_n, pt, *params);
-      sTemp = Eigen_value_evaluation(mat_n, vec_n);
+      OrderParam::Matrice_constructor(ni, mat_n, pt, *params);
+      sTemp = OrderParam::Eigen_value_evaluation(mat_n, vec_n);
       S1 += sTemp;
       S2 += sTemp * sTemp;
     }
@@ -101,3 +101,5 @@ int stepEvolveN::run() {
 
   return 0;
 }
+
+stepEvolveN::~stepEvolveN() {};
