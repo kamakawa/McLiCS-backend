@@ -2,17 +2,13 @@
 #define SIMULATOR_H_
 
 // --- System Includes ---
-#include <gsl/gsl_rng.h>
 #include <iostream>
 
 // --- Project Includes ---
 #include "../include/define.h"
-#include "../include/evolve.h"
-#include "../include/io.h"
-#include "../include/monte_carlo.h"
-#include "../include/parameter_order.h"
+#include "../include/evolve_strategy.h"  // ← NOVO
+#include "../include/geometry.h"
 #include "../include/parameters.h"
-#include "../include/potential.h"
 
 class simulator {
  public:
@@ -20,18 +16,32 @@ class simulator {
   simulator(Parameters *params);
   ~simulator();
 
-  // Metodos de Configuracao e Saida
-  void Setup_simmulation(Parameters &params);
+  // Configuracao da simulacao
+  void Setup_simmulation(Parameters &params);  
+  
+  // Execucao da evolucao
+  int run_evolution();  
+  
+  // Metodos de acesso e utilidade
   int print_n(char *fname, Parameters *params);
+  Geometry* get_geometry() { return geometry; }
+  float* get_ni() { return ni; }
+  int* get_pt() { return pt; }
 
-  // Variaveis Publicas de Estado
-  Parameters *params;
-  Evolve *evolve;
-  int *pt;
   int Nx, Ny, Nz;
+  Geometry *geometry;
+  float *ni;
+  int *pt;
 
  private:
-  float *ni;
+  // Estado do sistema
+  Parameters *params;
+  
+  EvolveStrategy *evolve_strategy;
+  
+  
+  // Configuracao da estrategia
+  void setup_evolution_strategy();  
 };
 
 #endif

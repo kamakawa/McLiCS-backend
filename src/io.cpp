@@ -7,7 +7,7 @@
 
 // --- Project Includes ---
 #include "../include/define.h"
-#include "../include/evolve.h"
+#include "../include/evolve_strategy.h"
 #include "../include/ic.h"
 #include "../include/parameters.h"
 #include "../include/potential.h"

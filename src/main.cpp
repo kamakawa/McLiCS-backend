@@ -12,13 +12,14 @@
 
 // --- Project Includes ---
 #include "../include/define.h"
-#include "../include/evolve.h"
 #include "../include/io.h"
 #include "../include/monte_carlo.h"
 #include "../include/parameter_order.h"
 #include "../include/parameters.h"
 #include "../include/potential.h"
 #include "../include/simulator.h"
+#include "../include/evolve_strategy.h"
+#include "../include/geometry.h"
 
 #define MCLICS_VERSION "0.1"
 
@@ -140,7 +141,9 @@ int main(int argc, char **argv) {
   sprintf(fname, "ic.csv");
   sim->print_n(fname, &params);
 
-  sim->evolve->run();
+  EvolveStrategy* strategy = EvolveStrategyFactory::create(&params);
+    strategy->run(sim->ni, sim->pt, &params, sim->geometry);
+    delete strategy;
 
   printSimulationSummary(&params);
   

@@ -7,7 +7,7 @@
 
 // --- Project Includes ---
 #include "../include/define.h"
-#include "../include/evolve.h"
+#include "../include/evolve_strategy.h"  
 #include "../include/ic.h"
 #include "../include/io.h"
 #include "../include/monte_carlo.h"
@@ -23,54 +23,37 @@ simulator::simulator(Parameters *params)
   // Inicializa ponteiros como nulos para seguranca
   this->ni = nullptr;
   this->pt = nullptr;
-  this->evolve = nullptr;
+  this->geometry = nullptr;       
+  this->evolve_strategy = nullptr; 
 }
 
 // Destrutor (Limpeza de Memoria)
 simulator::~simulator() {
-  // Libera a geometria e a classe de evolucao se existirem
-  if (this->evolve != nullptr) {
-    if (this->evolve->geometry != nullptr) {
-      delete this->evolve->geometry;
-    }
-    delete this->evolve;
+  if (this->evolve_strategy != nullptr) {
+    delete this->evolve_strategy;
   }
 
-  // Libera os arrays de dados
+  if (this->geometry != nullptr) {
+    delete this->geometry;
+  }
+
   if (this->ni != nullptr) free(this->ni);
   if (this->pt != nullptr) free(this->pt);
 }
 
-// Configura a simulacao (Alocacao e Instanciacao)
 void simulator::Setup_simmulation(Parameters &params) {
-  // Alocacao dos vetores e tipos de pontos
   int Nn = 3 * params.Nx * params.Ny * params.Nz;
   ni = (float *)calloc(Nn, sizeof(float));
   pt = (int *)calloc(Nn, sizeof(int));
 
-  // --- Selecao do Tipo de Evolucao ---
-  if (strcasecmp(params.evol, "thermal") == 0) {
-    evolve = new thermalEvolveN(ni, pt, &params);
-  } else if (strcasecmp(params.evol, "step") == 0) {
-    evolve = new stepEvolveN(ni, pt, &params);
-  } else if (strcasecmp(params.evol, "quench") == 0) {
-    evolve = new quenchEvolveN(ni, pt, &params);
-  } else if (strcasecmp(params.evol, "electric") == 0) {
-    evolve = new electricEvolveN(ni, pt, &params);
-  } else {
-    printf("Evolve %s not defined, try thermal or step\n", params.evol);
-    exit(2);
-  }
-
-  // --- Selecao da Geometria ---
   if (strcasecmp(params.geometry, "bulk") == 0) {
-    evolve->geometry = new Bulk_Geometry(pt, &params);
+    geometry = new Bulk_Geometry(pt, &params);
   } else if (strcasecmp(params.geometry, "slab") == 0) {
-    evolve->geometry = new Slab_Geometry(pt, &params);
+    geometry = new Slab_Geometry(pt, &params);
   } else if (strcasecmp(params.geometry, "sphere") == 0) {
-    evolve->geometry = new Sphere_Geometry(pt, &params);
+    geometry = new Sphere_Geometry(pt, &params);
   } else if (strcasecmp(params.geometry, "custom") == 0) {
-    evolve->geometry = new Custom_Geometry(pt, &params);
+    geometry = new Custom_Geometry(pt, &params);
   } else {
     fprintf(stderr, "Geometry %s not defined\n", params.geometry);
     exit(2);
@@ -107,30 +90,64 @@ void simulator::Setup_simmulation(Parameters &params) {
   }
 
   // Inicializacao de Geometria e Pontos
-  evolve->geometry->Boundary_Init(&params);
-  evolve->check_Points(pt, params);
+  geometry->Boundary_Init(&params);
   
   // Aplicacao das Condicoes Iniciais
   apply_Initial_Condidions(ni, pt, params);
 
   // --- Selecao do Potencial de Interacao ---
   if ((strcasecmp(params.potential, "ll") == 0) || (strcasecmp(params.potential, "lebwohl-lahser") == 0)) {
-    evolve->geometry->bulk_potential = &Potential::Bulk_Energy_Lebwohl_Lasher;
+    geometry->bulk_potential = &Potential::Bulk_Energy_Lebwohl_Lasher;
     printf("Using lebwohl-lasher potential\n");
   } 
   else if ((strcasecmp(params.potential, "ghrl") == 0) || (strcasecmp(params.potential, "grun-hess") == 0)) {
-    evolve->geometry->bulk_potential = &Potential::Bulk_Energy_GHRL;
+    geometry->bulk_potential = &Potential::Bulk_Energy_GHRL;
     setGHRL(params);
     printf("Using gruhn-hess potential\n");
   } 
   else if (strcasecmp(params.potential, "pear") == 0) {
-    evolve->geometry->bulk_potential = &Potential::Bulk_Energy_Selinger_Pear;
+    geometry->bulk_potential = &Potential::Bulk_Energy_Selinger_Pear;
     printf("Using splay-bend potential\n");
   } 
   else {
     printf("%s potential not programed.\n Try lebwohl-lasher(LL), pear, BC or gruhn-hess(GHRL)", params.potential);
     exit(2);
   }
+
+  setup_evolution_strategy();
+}
+
+void simulator::setup_evolution_strategy() {
+  evolve_strategy = EvolveStrategyFactory::create(params);
+  
+  if (!evolve_strategy) {
+    std::cerr << "Error: Could not create evolution strategy!" << std::endl;
+    exit(1);
+  }
+  
+  printf("Evolution strategy configured: %s\n", 
+         evolve_strategy->getName().c_str());
+}
+
+int simulator::run_evolution() {
+  if (!evolve_strategy) {
+    std::cerr << "Error: No evolution strategy configured!" << std::endl;
+    return -1;
+  }
+  
+  if (!geometry) {
+    std::cerr << "Error: No geometry configured!" << std::endl;
+    return -1;
+  }
+  
+  printf("\n=== Starting Evolution ===\n");
+  printf("Strategy: %s\n", evolve_strategy->getName().c_str());
+  printf("System size: %dx%dx%d\n", params->Nx, params->Ny, params->Nz);
+  printf("Temperature: Ti=%g, Tf=%g\n", params->Ti, params->Tf);
+  printf("Monte Carlo: MCT=%d, MCS=%d\n\n", params->MCT, params->MCS);
+  
+  // Executa a estratégia
+  return evolve_strategy->run(ni, pt, params, geometry);
 }
 
 // Imprime snapshot (Wrapper para a funcao io)
