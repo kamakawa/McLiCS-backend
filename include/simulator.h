@@ -3,45 +3,51 @@
 
 // --- System Includes ---
 #include <iostream>
+#include <vector>  // ← NOVO
 
 // --- Project Includes ---
 #include "../include/define.h"
-#include "../include/evolve_strategy.h"  // ← NOVO
-#include "../include/geometry.h"
+#include "../include/evolve_strategy.h"
+#include "../include/geometry_strategy.h"    // ← NOVO
+#include "../include/anchoring_strategy.h"  // ← NOVO
 #include "../include/parameters.h"
 
 class simulator {
  public:
-  // Construtor e Destrutor
   simulator(Parameters *params);
   ~simulator();
 
-  // Configuracao da simulacao
-  void Setup_simmulation(Parameters &params);  
-  
-  // Execucao da evolucao
-  int run_evolution();  
-  
-  // Metodos de acesso e utilidade
+  void Setup_simmulation(Parameters &params);
+  int run_evolution();
   int print_n(char *fname, Parameters *params);
-  Geometry* get_geometry() { return geometry; }
+  
+  // Getters atualizados
+  GeometryStrategy* get_geometry() { return geometry_strategy; }  // ← NOVO
   float* get_ni() { return ni; }
   int* get_pt() { return pt; }
-
-  int Nx, Ny, Nz;
-  Geometry *geometry;
-  float *ni;
-  int *pt;
+  float* get_surface_normals() { return surface_normals; }  // ← NOVO
+  std::vector<AnchoringStrategy*>& get_anchoring_strategies() { return anchoring_strategies; }  // ← NOVO
 
  private:
   // Estado do sistema
+  float *ni;
+  int *pt;
   Parameters *params;
   
+  // Estratégias
+  GeometryStrategy *geometry_strategy;           // ← NOVO (substitui Geometry*)
   EvolveStrategy *evolve_strategy;
+  std::vector<AnchoringStrategy*> anchoring_strategies;  // ← NOVO
   
+  // Dados auxiliares
+  float *surface_normals;  // ← NOVO
+  int Nx, Ny, Nz;
   
-  // Configuracao da estrategia
-  void setup_evolution_strategy();  
+  // Métodos de configuração
+  void setup_evolution_strategy();
+  void setup_geometry_strategy(Parameters &params);      // ← NOVO
+  void setup_anchoring_strategies(Parameters &params);   // ← NOVO
+  void setup_potential(Parameters &params);              // ← NOVO
 };
 
 #endif

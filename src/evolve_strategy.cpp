@@ -1,15 +1,19 @@
+#include "../include/evolve_strategy.h"
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_rng.h>
 #include <math.h>
 #include <omp.h>
 #include <iostream>
-#include "../include/evolve_strategy.h"
 #include "../include/io.h"
 #include "../include/monte_carlo.h"
 #include "../include/parameter_order.h"
+#include "../include/parameters.h"
 #include "../include/potential.h"
+#include "../include/geometry_strategy.h"
+#include "../include/anchoring_strategy.h"
 
-// Função inline para configurar vizinhos (do evolve.cpp)
+// ========== Funções Auxiliares ==========
+
 void inline setNni(uint pos, int conditional, nni *nLocal, float *ni, int *pt) {
   if (conditional == 1) {
     nLocal->x = ni[pos * 3 + 0];
@@ -41,7 +45,9 @@ void EvolveStrategy::cleanupRNG(gsl_rng** rng, int num_threads) {
 }
 
 void EvolveStrategy::monteCarloStep(float& ang_var, gsl_rng** r, float* ni, int* pt, 
-                                   Parameters* params, Geometry* geometry) {
+                                   Parameters* params, GeometryStrategy* geometry_strategy,
+                                   float* surface_normals,
+                                   std::vector<AnchoringStrategy*>& anchoring_strategies) {
     static int Nt = params->Nx * params->Ny * params->Nz;
     static int valid_points = 0;
     static bool first_run = true;
@@ -59,6 +65,7 @@ void EvolveStrategy::monteCarloStep(float& ang_var, gsl_rng** r, float* ni, int*
     const int Ny = params->Ny;
     const int Nz = params->Nz;
     
+    // Configuração do sistema de caixas para paralelização
     int iBoxSize = 2;
     int jBoxSize = 2;
     int kBoxSize = 2;
@@ -73,7 +80,7 @@ void EvolveStrategy::monteCarloStep(float& ang_var, gsl_rng** r, float* ni, int*
         for (int tick = 0; tick < 8; tick++) {
             #pragma omp for reduction(+:acceptance) schedule(dynamic)
             for (int nt = 0; nt < Ntt; nt++) {
-                float E_new, E_old, rotation_type, va, ranVal;
+                float E_new, E_old, rotation_type, va;
                 int i, j, k;
                 float nNew[3];
                 
@@ -121,9 +128,9 @@ void EvolveStrategy::monteCarloStep(float& ang_var, gsl_rng** r, float* ni, int*
                 // Configura normal da superfície se necessário
                 if (nLocal[0].pt > 1) {
                     int idx = i + Nx * (j + Ny * k);
-                    nLocal[7].x = geometry->ns[idx * 3 + 0];
-                    nLocal[7].y = geometry->ns[idx * 3 + 1];
-                    nLocal[7].z = geometry->ns[idx * 3 + 2];
+                    nLocal[7].x = surface_normals[idx * 3 + 0];
+                    nLocal[7].y = surface_normals[idx * 3 + 1];
+                    nLocal[7].z = surface_normals[idx * 3 + 2];
                     nLocal[7].pt = 1;
                 }
 
@@ -181,13 +188,13 @@ void EvolveStrategy::monteCarloStep(float& ang_var, gsl_rng** r, float* ni, int*
                 nNew[2] /= norm;
 
                 // Calculo de Energia (Metropolis)
-                E_old = geometry->latice_Potential(nLocal);
+                E_old = geometry_strategy->calculatePotential(nLocal, params, anchoring_strategies, surface_normals);
                 
                 nLocal[0].x = nNew[0];
                 nLocal[0].y = nNew[1];
                 nLocal[0].z = nNew[2];
                 
-                E_new = geometry->latice_Potential(nLocal);
+                E_new = geometry_strategy->calculatePotential(nLocal, params, anchoring_strategies, surface_normals);
 
                 // Critério de aceitação de Metropolis
                 if (E_new - E_old < 0 || gsl_rng_uniform(r[thread]) < exp(-(E_new - E_old) / params->T)) {
@@ -211,18 +218,12 @@ void EvolveStrategy::monteCarloStep(float& ang_var, gsl_rng** r, float* ni, int*
     }
 }
 
-float EvolveStrategy::energyCalculator(float* ni, int* pt, Parameters* params, Geometry* geometry) {
+// CORREÇÃO: energyCalculator agora retorna energia TOTAL (igual ao original)
+float EvolveStrategy::energyCalculator(float* ni, int* pt, Parameters* params,
+                                      GeometryStrategy* geometry_strategy,
+                                      float* surface_normals,
+                                      std::vector<AnchoringStrategy*>& anchoring_strategies) {
     static const int Nt = params->Nx * params->Ny * params->Nz;
-    static int valid_points = 0;
-    static bool first_run = true;
-
-    if (first_run) {
-        for (int i = 0; i < Nt; i++) {
-            if (pt[i]) valid_points++;
-        }
-        first_run = false;
-    }
-
     double total_energy = 0.0;
     const int Nx = params->Nx;
     const int Ny = params->Ny;
@@ -260,27 +261,54 @@ float EvolveStrategy::energyCalculator(float* ni, int* pt, Parameters* params, G
         // Configura normal da superfície se necessário
         if (nLocal[0].pt > 1) {
             int pos = i + Nx * (j + Ny * k);
-            nLocal[7].x = geometry->ns[pos * 3 + 0];
-            nLocal[7].y = geometry->ns[pos * 3 + 1];
-            nLocal[7].z = geometry->ns[pos * 3 + 2];
+            nLocal[7].x = surface_normals[pos * 3 + 0];
+            nLocal[7].y = surface_normals[pos * 3 + 1];
+            nLocal[7].z = surface_normals[pos * 3 + 2];
             nLocal[7].pt = 1;
         }
 
-        // Vizinhos de ordens superiores (similar ao Monte Carlo)
+        // Vizinhos de ordens superiores
         if (params->neighbourKind > 1) {
-            // ... configuração similar aos vizinhos de 2a e 3a ordem ...
+            setNni(ip + Nx * (jp + Ny * k ), neighbour[0] * neighbour[2], &nLocal[8], ni, pt);
+            setNni(ip + Nx * (jm + Ny * k ), neighbour[0] * neighbour[3], &nLocal[9], ni, pt);
+            setNni(ip + Nx * (j  + Ny * kp), neighbour[0] * neighbour[4], &nLocal[10], ni, pt);
+            setNni(ip + Nx * (j  + Ny * km), neighbour[0] * neighbour[5], &nLocal[11], ni, pt);
+            setNni(im + Nx * (jp + Ny * k ), neighbour[1] * neighbour[2], &nLocal[12], ni, pt);
+            setNni(im + Nx * (jm + Ny * k ), neighbour[1] * neighbour[3], &nLocal[13], ni, pt);
+            setNni(im + Nx * (j  + Ny * kp), neighbour[1] * neighbour[4], &nLocal[14], ni, pt);
+            setNni(im + Nx * (j  + Ny * km), neighbour[1] * neighbour[5], &nLocal[15], ni, pt);
+            setNni(i  + Nx * (jp + Ny * kp), neighbour[2] * neighbour[4], &nLocal[16], ni, pt);
+            setNni(i  + Nx * (jp + Ny * km), neighbour[2] * neighbour[5], &nLocal[17], ni, pt);
+            setNni(i  + Nx * (jm + Ny * kp), neighbour[3] * neighbour[4], &nLocal[18], ni, pt);
+            setNni(i  + Nx * (jm + Ny * km), neighbour[3] * neighbour[5], &nLocal[19], ni, pt);
         }
 
-        total_energy += geometry->latice_Potential(nLocal);
+        if (params->neighbourKind == 3) {
+            setNni(ip + Nx * (jp + Ny * kp), neighbour[0] * neighbour[2] * neighbour[4], &nLocal[20], ni, pt);
+            setNni(ip + Nx * (jp + Ny * km), neighbour[0] * neighbour[2] * neighbour[5], &nLocal[21], ni, pt);
+            setNni(ip + Nx * (jm + Ny * kp), neighbour[0] * neighbour[3] * neighbour[4], &nLocal[22], ni, pt);
+            setNni(ip + Nx * (jm + Ny * km), neighbour[0] * neighbour[3] * neighbour[5], &nLocal[23], ni, pt);
+            setNni(im + Nx * (jp + Ny * kp), neighbour[1] * neighbour[2] * neighbour[4], &nLocal[24], ni, pt);
+            setNni(im + Nx * (jp + Ny * km), neighbour[1] * neighbour[2] * neighbour[5], &nLocal[25], ni, pt);
+            setNni(im + Nx * (jm + Ny * kp), neighbour[1] * neighbour[3] * neighbour[4], &nLocal[26], ni, pt);
+            setNni(im + Nx * (jm + Ny * km), neighbour[1] * neighbour[3] * neighbour[5], &nLocal[27], ni, pt);
+        }
+
+        float energy = geometry_strategy->calculatePotential(nLocal, params, anchoring_strategies, surface_normals);
+        total_energy += energy;
     }
 
-    return valid_points > 0 ? total_energy / valid_points : 0.0;
+    // CORREÇÃO: Retornar energia TOTAL (igual ao original)
+    return total_energy / Nt;
 }
 
-// ========== Implementação das Estratégias Específicas ==========
+// ========== Implementações das Estratégias Específicas ==========
+// (Mantidas iguais, pois agora usam os métodos corrigidos)
 
-// ThermalEvolveStrategy (já implementado anteriormente)
-int ThermalEvolveStrategy::run(float* ni, int* pt, Parameters* params, Geometry* geometry) {
+int ThermalEvolveStrategy::run(float* ni, int* pt, Parameters* params,
+                              GeometryStrategy* geometry_strategy,
+                              float* surface_normals,
+                              std::vector<AnchoringStrategy*>& anchoring_strategies) {
     printf("Initializing thermal evolution:\n");
     printf("Ti= %g, Tf= %g, dT= %g\n\n", params->Ti, params->Tf, params->dT);
     
@@ -296,14 +324,17 @@ int ThermalEvolveStrategy::run(float* ni, int* pt, Parameters* params, Geometry*
            params->Ti, params->Tf, params->dT);
     printf("MCT=%d MCS=%d using %d threads\n", params->MCT, params->MCS, num_threads);
     
-    thermalLoop(ni, pt, params, geometry, rng, po_file);
+    thermalLoop(ni, pt, params, geometry_strategy, surface_normals, anchoring_strategies, rng, po_file);
     
     fclose(po_file);
     cleanupRNG(rng, num_threads);
     return 0;
 }
 
-void ThermalEvolveStrategy::thermalLoop(float* ni, int* pt, Parameters* params, Geometry* geometry,
+void ThermalEvolveStrategy::thermalLoop(float* ni, int* pt, Parameters* params,
+                                       GeometryStrategy* geometry_strategy,
+                                       float* surface_normals,
+                                       std::vector<AnchoringStrategy*>& anchoring_strategies,
                                        gsl_rng** rng, FILE* po_file) {
     float ang_var = 0.5;
     int sign = (params->dT > 0) ? 1 : -1;
@@ -314,7 +345,8 @@ void ThermalEvolveStrategy::thermalLoop(float* ni, int* pt, Parameters* params, 
         
         // Passos de equilíbrio
         for (int step = 0; step < params->MCT; step++) {
-            monteCarloStep(ang_var, rng, ni, pt, params, geometry);
+            monteCarloStep(ang_var, rng, ni, pt, params, geometry_strategy, 
+                          surface_normals, anchoring_strategies);
         }
         
         // Coleta de estatísticas
@@ -322,9 +354,11 @@ void ThermalEvolveStrategy::thermalLoop(float* ni, int* pt, Parameters* params, 
         float vec_n[3], mat_n[9];
         
         for (int step = 0; step < params->MCS; step++) {
-            monteCarloStep(ang_var, rng, ni, pt, params, geometry);
+            monteCarloStep(ang_var, rng, ni, pt, params, geometry_strategy,
+                          surface_normals, anchoring_strategies);
             
-            float tempE = energyCalculator(ni, pt, params, geometry);
+            float tempE = energyCalculator(ni, pt, params, geometry_strategy,
+                                         surface_normals, anchoring_strategies);
             E += tempE;
             E2 += tempE * tempE;
             
@@ -350,8 +384,10 @@ void ThermalEvolveStrategy::thermalLoop(float* ni, int* pt, Parameters* params, 
     }
 }
 
-// StepEvolveStrategy
-int StepEvolveStrategy::run(float* ni, int* pt, Parameters* params, Geometry* geometry) {
+int StepEvolveStrategy::run(float* ni, int* pt, Parameters* params,
+                           GeometryStrategy* geometry_strategy,
+                           float* surface_normals,
+                           std::vector<AnchoringStrategy*>& anchoring_strategies) {
     printf("Initializing step evolution:\n");
     printf("Initial File Number= %d, Last File Number= %d\n\n", 
            params->first_file, params->first_file + params->fn);
@@ -373,7 +409,8 @@ int StepEvolveStrategy::run(float* ni, int* pt, Parameters* params, Geometry* ge
         
         // Passos de equilíbrio
         for (int step = 0; step < params->MCT; step++) {
-            monteCarloStep(ang_var, rng, ni, pt, params, geometry);
+            monteCarloStep(ang_var, rng, ni, pt, params, geometry_strategy,
+                          surface_normals, anchoring_strategies);
         }
         
         // Coleta de estatísticas
@@ -381,9 +418,11 @@ int StepEvolveStrategy::run(float* ni, int* pt, Parameters* params, Geometry* ge
         float vec_n[3], mat_n[9];
         
         for (int step = 0; step < params->MCS; step++) {
-            monteCarloStep(ang_var, rng, ni, pt, params, geometry);
+            monteCarloStep(ang_var, rng, ni, pt, params, geometry_strategy,
+                          surface_normals, anchoring_strategies);
             
-            float tempE = energyCalculator(ni, pt, params, geometry);
+            float tempE = energyCalculator(ni, pt, params, geometry_strategy,
+                                         surface_normals, anchoring_strategies);
             E += tempE;
             E2 += tempE * tempE;
             
@@ -413,8 +452,94 @@ int StepEvolveStrategy::run(float* ni, int* pt, Parameters* params, Geometry* ge
     return 0;
 }
 
-// ElectricEvolveStrategy  
-int ElectricEvolveStrategy::run(float* ni, int* pt, Parameters* params, Geometry* geometry) {
+int QuenchEvolveStrategy::run(float* ni, int* pt, Parameters* params,
+                             GeometryStrategy* geometry_strategy,
+                             float* surface_normals,
+                             std::vector<AnchoringStrategy*>& anchoring_strategies) {
+    printf("Initializing quench evolution:\n");
+    printf("Initial File Number= %d, Last File Number= %d\n\n", 
+           params->first_file, params->first_file + params->fn);
+    
+    int num_threads = omp_get_max_threads();
+    gsl_rng** rng;
+    initializeRNG(&rng, num_threads);
+    
+    FILE* po_file = fopen("po_quench.dat", "a");
+    fprintf(po_file, "ii S varS E varE\n");
+    fflush(po_file);
+    
+    printf("Quench relaxation using MCT=%d MCS=%d fn=%d with %d threads\n",
+           params->MCT, params->MCS, params->fn, num_threads);
+    
+    quenchLoop(ni, pt, params, geometry_strategy, surface_normals, anchoring_strategies, rng, po_file);
+    
+    fclose(po_file);
+    cleanupRNG(rng, num_threads);
+    return 0;
+}
+
+void QuenchEvolveStrategy::quenchLoop(float* ni, int* pt, Parameters* params,
+                                     GeometryStrategy* geometry_strategy,
+                                     float* surface_normals,
+                                     std::vector<AnchoringStrategy*>& anchoring_strategies,
+                                     gsl_rng** rng, FILE* po_file) {
+    float ang_var = 0.5;
+    
+    for (int ii = params->first_file; ii < params->fn + params->first_file; ii++) {
+        
+        // Fase de alta temperatura
+        params->T = params->Ti;
+        for (int step = 0; step < params->MCT; step++) {
+            monteCarloStep(ang_var, rng, ni, pt, params, geometry_strategy,
+                          surface_normals, anchoring_strategies);
+        }
+        
+        // Resfriamento rápido
+        params->T = params->Tf;
+        for (int step = 0; step < params->MCT * params->dT; step++) {
+            monteCarloStep(ang_var, rng, ni, pt, params, geometry_strategy,
+                          surface_normals, anchoring_strategies);
+        }
+        
+        // Coleta de estatísticas na temperatura final
+        float S1 = 0, S2 = 0, E = 0, E2 = 0;
+        float vec_n[3], mat_n[9];
+        
+        for (int step = 0; step < params->MCS; step++) {
+            monteCarloStep(ang_var, rng, ni, pt, params, geometry_strategy,
+                          surface_normals, anchoring_strategies);
+            
+            float tempE = energyCalculator(ni, pt, params, geometry_strategy,
+                                         surface_normals, anchoring_strategies);
+            E += tempE;
+            E2 += tempE * tempE;
+            
+            OrderParam::Matrice_constructor(ni, mat_n, pt, *params);
+            float sTemp = OrderParam::Eigen_value_evaluation(mat_n, vec_n);
+            S1 += sTemp;
+            S2 += sTemp * sTemp;
+        }
+        
+        // Cálculo de médias
+        E /= params->MCS;
+        E2 /= params->MCS;
+        S1 /= params->MCS;
+        S2 /= params->MCS;
+        
+        // Saída
+        char fname[100];
+        sprintf(fname, "director_field_%d.csv", ii);
+        print_n(fname, ni, *params, pt);
+        
+        fprintf(po_file, "%d %g %g %g %g\n", ii, S1, S2 - S1 * S1, E, E2 - E * E);
+        fflush(po_file);
+    }
+}
+
+int ElectricEvolveStrategy::run(float* ni, int* pt, Parameters* params,
+                               GeometryStrategy* geometry_strategy,
+                               float* surface_normals,
+                               std::vector<AnchoringStrategy*>& anchoring_strategies) {
     printf("Initializing electric field evolution:\n");
     printf("Ei= %g, Ef= %g, dE= %g\n\n", params->elecEi, params->elecEf, params->elecdE);
     
@@ -430,14 +555,17 @@ int ElectricEvolveStrategy::run(float* ni, int* pt, Parameters* params, Geometry
            params->elecEi, params->elecEf, params->elecdE);
     printf("MCT=%d MCS=%d using %d threads\n", params->MCT, params->MCS, num_threads);
     
-    electricLoop(ni, pt, params, geometry, rng, po_file);
+    electricLoop(ni, pt, params, geometry_strategy, surface_normals, anchoring_strategies, rng, po_file);
     
     fclose(po_file);
     cleanupRNG(rng, num_threads);
     return 0;
 }
 
-void ElectricEvolveStrategy::electricLoop(float* ni, int* pt, Parameters* params, Geometry* geometry,
+void ElectricEvolveStrategy::electricLoop(float* ni, int* pt, Parameters* params,
+                                         GeometryStrategy* geometry_strategy,
+                                         float* surface_normals,
+                                         std::vector<AnchoringStrategy*>& anchoring_strategies,
                                          gsl_rng** rng, FILE* po_file) {
     float ang_var = 0.5;
     int sign = (params->elecdE > 0) ? 1 : -1;
@@ -448,7 +576,8 @@ void ElectricEvolveStrategy::electricLoop(float* ni, int* pt, Parameters* params
         
         // Passos de equilíbrio
         for (int step = 0; step < params->MCT; step++) {
-            monteCarloStep(ang_var, rng, ni, pt, params, geometry);
+            monteCarloStep(ang_var, rng, ni, pt, params, geometry_strategy,
+                          surface_normals, anchoring_strategies);
         }
         
         // Coleta de estatísticas
@@ -456,9 +585,11 @@ void ElectricEvolveStrategy::electricLoop(float* ni, int* pt, Parameters* params
         float vec_n[3], mat_n[9];
         
         for (int step = 0; step < params->MCS; step++) {
-            monteCarloStep(ang_var, rng, ni, pt, params, geometry);
+            monteCarloStep(ang_var, rng, ni, pt, params, geometry_strategy,
+                          surface_normals, anchoring_strategies);
             
-            float tempE = energyCalculator(ni, pt, params, geometry);
+            float tempE = energyCalculator(ni, pt, params, geometry_strategy,
+                                         surface_normals, anchoring_strategies);
             E += tempE;
             E2 += tempE * tempE;
             
@@ -484,83 +615,7 @@ void ElectricEvolveStrategy::electricLoop(float* ni, int* pt, Parameters* params
     }
 }
 
-// QuenchEvolveStrategy (já implementado anteriormente - mantido por completude)
-int QuenchEvolveStrategy::run(float* ni, int* pt, Parameters* params, Geometry* geometry) {
-    printf("Initializing quench evolution:\n");
-    printf("Initial File Number= %d, Last File Number= %d\n\n", 
-           params->first_file, params->first_file + params->fn);
-    
-    int num_threads = omp_get_max_threads();
-    gsl_rng** rng;
-    initializeRNG(&rng, num_threads);
-    
-    FILE* po_file = fopen("po_quench.dat", "a");
-    fprintf(po_file, "ii S varS E varE\n");
-    fflush(po_file);
-    
-    printf("Quench relaxation using MCT=%d MCS=%d fn=%d with %d threads\n",
-           params->MCT, params->MCS, params->fn, num_threads);
-    
-    quenchLoop(ni, pt, params, geometry, rng, po_file);
-    
-    fclose(po_file);
-    cleanupRNG(rng, num_threads);
-    return 0;
-}
-
-void QuenchEvolveStrategy::quenchLoop(float* ni, int* pt, Parameters* params, Geometry* geometry,
-                                     gsl_rng** rng, FILE* po_file) {
-    float ang_var = 0.5;
-    
-    for (int ii = params->first_file; ii < params->fn + params->first_file; ii++) {
-        
-        // Fase de alta temperatura
-        params->T = params->Ti;
-        for (int step = 0; step < params->MCT; step++) {
-            monteCarloStep(ang_var, rng, ni, pt, params, geometry);
-        }
-        
-        // Resfriamento rápido
-        params->T = params->Tf;
-        for (int step = 0; step < params->MCT * params->dT; step++) {
-            monteCarloStep(ang_var, rng, ni, pt, params, geometry);
-        }
-        
-        // Coleta de estatísticas na temperatura final
-        float S1 = 0, S2 = 0, E = 0, E2 = 0;
-        float vec_n[3], mat_n[9];
-        
-        for (int step = 0; step < params->MCS; step++) {
-            monteCarloStep(ang_var, rng, ni, pt, params, geometry);
-            
-            float tempE = energyCalculator(ni, pt, params, geometry);
-            E += tempE;
-            E2 += tempE * tempE;
-            
-            OrderParam::Matrice_constructor(ni, mat_n, pt, *params);
-            float sTemp = OrderParam::Eigen_value_evaluation(mat_n, vec_n);
-            S1 += sTemp;
-            S2 += sTemp * sTemp;
-        }
-        
-        // Cálculo de médias
-        E /= params->MCS;
-        E2 /= params->MCS;
-        S1 /= params->MCS;
-        S2 /= params->MCS;
-        
-        // Saída
-        char fname[100];
-        sprintf(fname, "director_field_%d.csv", ii);
-        print_n(fname, ni, *params, pt);
-        
-        fprintf(po_file, "%d %g %g %g %g\n", ii, S1, S2 - S1 * S1, E, E2 - E * E);
-        fflush(po_file);
-    }
-}
-
 // ========== Factory Method ==========
-
 EvolveStrategy* EvolveStrategyFactory::create(const std::string& evolveType) {
     if (evolveType == "thermal") {
         return new ThermalEvolveStrategy();
