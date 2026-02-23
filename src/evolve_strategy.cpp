@@ -30,7 +30,7 @@ void inline setNni(uint pos, int conditional, nni *nLocal, float *ni, int *pt) {
 void EvolveStrategy::initializeRNG(gsl_rng*** rng, int num_threads) {
     *rng = (gsl_rng**)calloc(num_threads, sizeof(gsl_rng*));
     gsl_rng_env_setup();
-    
+
     for (int i = 0; i < num_threads; i++) {
         (*rng)[i] = gsl_rng_alloc(gsl_rng_ranlxs0);
         gsl_rng_set((*rng)[i], i);
@@ -44,37 +44,40 @@ void EvolveStrategy::cleanupRNG(gsl_rng** rng, int num_threads) {
     free(rng);
 }
 
-void EvolveStrategy::monteCarloStep(float& ang_var, gsl_rng** r, float* ni, int* pt, 
+void EvolveStrategy::monteCarloStep(float& ang_var, gsl_rng** r, float* ni, int* pt,
                                    Parameters* params, GeometryStrategy* geometry_strategy,
                                    float* surface_normals,
                                    std::vector<AnchoringStrategy*>& anchoring_strategies) {
-    static int Nt = params->Nx * params->Ny * params->Nz;
-    static int valid_points = 0;
-    static bool first_run = true;
-    
-    if (first_run) {
-        for (int i = 0; i < Nt; i++) {
-            if (pt[i]) valid_points++;
-        }
-        first_run = false;
+    // ============================================================
+    // MELHORIA: evitar static baseado em params (pode "congelar" valores)
+    // ============================================================
+    const int Nt = params->Nx * params->Ny * params->Nz;
+
+    // ============================================================
+    // MELHORIA: calcula valid_points por chamada (robusto se rodar múltiplas sims)
+    // ============================================================
+    int valid_points = 0;
+    for (int i = 0; i < Nt; i++) {
+        if (pt[i]) valid_points++;
     }
-    
+    if (valid_points == 0) return;
+
     int acceptance = 0;
     const int num_threads = omp_get_max_threads();
     const int Nx = params->Nx;
     const int Ny = params->Ny;
     const int Nz = params->Nz;
-    
+
     // Configuração do sistema de caixas para paralelização
     int iBoxSize = 2;
     int jBoxSize = 2;
     int kBoxSize = 2;
-    
+
     int Ni = Nx / 2 + Nx % 2;
     int Nj = Ny / 2 + Ny % 2;
     int Nk = Nz / 2 + Nz % 2;
     int Ntt = Ni * Nj * Nk;
-    
+
     #pragma omp parallel num_threads(num_threads)
     {
         for (int tick = 0; tick < 8; tick++) {
@@ -83,12 +86,12 @@ void EvolveStrategy::monteCarloStep(float& ang_var, gsl_rng** r, float* ni, int*
                 float E_new, E_old, rotation_type, va;
                 int i, j, k;
                 float nNew[3];
-                
+
                 int thread = omp_get_thread_num();
                 int iBox = nt % Ni;
                 int jBox = (nt / Ni) % Nj;
                 int kBox = nt / (Ni * Nj);
-                
+
                 int di = tick % 2;
                 int dj = (tick / 2) % 2;
                 int dk = tick / 4;
@@ -102,7 +105,7 @@ void EvolveStrategy::monteCarloStep(float& ang_var, gsl_rng** r, float* ni, int*
                 if (j >= Ny) continue;
                 k = dk + kBox * kBoxSize;
                 if (k >= Nz) continue;
-                
+
                 if (pti(i, j, k) == 0) continue;
 
                 // Calcula índices dos vizinhos
@@ -189,11 +192,11 @@ void EvolveStrategy::monteCarloStep(float& ang_var, gsl_rng** r, float* ni, int*
 
                 // Calculo de Energia (Metropolis)
                 E_old = geometry_strategy->calculatePotential(nLocal, params, anchoring_strategies, surface_normals);
-                
+
                 nLocal[0].x = nNew[0];
                 nLocal[0].y = nNew[1];
                 nLocal[0].z = nNew[2];
-                
+
                 E_new = geometry_strategy->calculatePotential(nLocal, params, anchoring_strategies, surface_normals);
 
                 // Critério de aceitação de Metropolis
@@ -208,13 +211,13 @@ void EvolveStrategy::monteCarloStep(float& ang_var, gsl_rng** r, float* ni, int*
     }
 
     // Ajuste dinâmico do passo angular
-    float acceptance_rate = 1.0 * acceptance / valid_points;
-    if (acceptance_rate < 0.5) {
-        ang_var *= 0.99;
-        if (ang_var < 0.01) ang_var = 0.01;
-    } else if (acceptance_rate > 0.5) {
-        ang_var /= 0.99;
-        if (ang_var > 1.0) ang_var = 0.5;
+    float acceptance_rate = 1.0f * acceptance / valid_points;
+    if (acceptance_rate < 0.5f) {
+        ang_var *= 0.99f;
+        if (ang_var < 0.01f) ang_var = 0.01f;
+    } else if (acceptance_rate > 0.5f) {
+        ang_var /= 0.99f;
+        if (ang_var > 1.0f) ang_var = 0.5f;
     }
 }
 
@@ -223,7 +226,7 @@ float EvolveStrategy::energyCalculator(float* ni, int* pt, Parameters* params,
                                       GeometryStrategy* geometry_strategy,
                                       float* surface_normals,
                                       std::vector<AnchoringStrategy*>& anchoring_strategies) {
-    static const int Nt = params->Nx * params->Ny * params->Nz;
+    const int Nt = params->Nx * params->Ny * params->Nz;
     double total_energy = 0.0;
     const int Nx = params->Nx;
     const int Ny = params->Ny;
@@ -311,21 +314,21 @@ int ThermalEvolveStrategy::run(float* ni, int* pt, Parameters* params,
                               std::vector<AnchoringStrategy*>& anchoring_strategies) {
     printf("Initializing thermal evolution:\n");
     printf("Ti= %g, Tf= %g, dT= %g\n\n", params->Ti, params->Tf, params->dT);
-    
+
     int num_threads = omp_get_max_threads();
     gsl_rng** rng;
     initializeRNG(&rng, num_threads);
-    
+
     FILE* po_file = fopen("po.dat", "a");
     fprintf(po_file, "T S varS E varE\n");
     fflush(po_file);
-    
+
     printf("Starting thermal variation from %g to %g with step %g\n",
            params->Ti, params->Tf, params->dT);
-    printf("MCT=%d MCS=%d using %d threads\n", params->MCT, params->MCS, num_threads);
-    
+    printf("MCT=%d MCS=%d using %d threads\n\n", params->MCT, params->MCS, num_threads);
+
     thermalLoop(ni, pt, params, geometry_strategy, surface_normals, anchoring_strategies, rng, po_file);
-    
+
     fclose(po_file);
     cleanupRNG(rng, num_threads);
     return 0;
@@ -336,49 +339,49 @@ void ThermalEvolveStrategy::thermalLoop(float* ni, int* pt, Parameters* params,
                                        float* surface_normals,
                                        std::vector<AnchoringStrategy*>& anchoring_strategies,
                                        gsl_rng** rng, FILE* po_file) {
-    float ang_var = 0.5;
+    float ang_var = 0.5f;
     int sign = (params->dT > 0) ? 1 : -1;
-    
-    for (params->T = params->Ti; 
-         sign * (params->T - params->Tf) <= 0; 
+
+    for (params->T = params->Ti;
+         sign * (params->T - params->Tf) <= 0;
          params->T += params->dT) {
-        
+
         // Passos de equilíbrio
         for (int step = 0; step < params->MCT; step++) {
-            monteCarloStep(ang_var, rng, ni, pt, params, geometry_strategy, 
+            monteCarloStep(ang_var, rng, ni, pt, params, geometry_strategy,
                           surface_normals, anchoring_strategies);
         }
-        
+
         // Coleta de estatísticas
         float S1 = 0, S2 = 0, E = 0, E2 = 0;
         float vec_n[3], mat_n[9];
-        
+
         for (int step = 0; step < params->MCS; step++) {
             monteCarloStep(ang_var, rng, ni, pt, params, geometry_strategy,
                           surface_normals, anchoring_strategies);
-            
+
             float tempE = energyCalculator(ni, pt, params, geometry_strategy,
                                          surface_normals, anchoring_strategies);
             E += tempE;
             E2 += tempE * tempE;
-            
+
             OrderParam::Matrice_constructor(ni, mat_n, pt, *params);
             float sTemp = OrderParam::Eigen_value_evaluation(mat_n, vec_n);
             S1 += sTemp;
             S2 += sTemp * sTemp;
         }
-        
+
         // Cálculo de médias e saída
         E /= params->MCS;
         E2 /= params->MCS;
         S1 /= params->MCS;
         S2 /= params->MCS;
-        
+
         // Salva snapshot
         char fname[100];
         sprintf(fname, "director_field_T_%d.csv", (int)(100 * (params->T + 1e-7)));
         print_n(fname, ni, *params, pt);
-        
+
         fprintf(po_file, "%g %g %g %g %g\n", params->T, S1, S2 - S1 * S1, E, E2 - E * E);
         fflush(po_file);
     }
@@ -389,64 +392,64 @@ int StepEvolveStrategy::run(float* ni, int* pt, Parameters* params,
                            float* surface_normals,
                            std::vector<AnchoringStrategy*>& anchoring_strategies) {
     printf("Initializing step evolution:\n");
-    printf("Initial File Number= %d, Last File Number= %d\n\n", 
+    printf("Initial File Number= %d, Last File Number= %d\n\n",
            params->first_file, params->first_file + params->fn);
-    
+
     int num_threads = omp_get_max_threads();
     gsl_rng** rng;
     initializeRNG(&rng, num_threads);
-    
+
     FILE* po_file = fopen("po_step.dat", "a");
     fprintf(po_file, "ii S varS E varE\n");
     fflush(po_file);
-    
-    printf("Step evolution using MCT=%d MCS=%d fn=%d with %d threads\n",
+
+    printf("Step evolution using MCT=%d MCS=%d fn=%d with %d threads\n\n",
            params->MCT, params->MCS, params->fn, num_threads);
-    
-    float ang_var = 0.5;
-    
+
+    float ang_var = 0.5f;
+
     for (int ii = params->first_file; ii < params->fn + params->first_file; ii++) {
-        
+
         // Passos de equilíbrio
         for (int step = 0; step < params->MCT; step++) {
             monteCarloStep(ang_var, rng, ni, pt, params, geometry_strategy,
                           surface_normals, anchoring_strategies);
         }
-        
+
         // Coleta de estatísticas
         float S1 = 0, S2 = 0, E = 0, E2 = 0;
         float vec_n[3], mat_n[9];
-        
+
         for (int step = 0; step < params->MCS; step++) {
             monteCarloStep(ang_var, rng, ni, pt, params, geometry_strategy,
                           surface_normals, anchoring_strategies);
-            
+
             float tempE = energyCalculator(ni, pt, params, geometry_strategy,
                                          surface_normals, anchoring_strategies);
             E += tempE;
             E2 += tempE * tempE;
-            
+
             OrderParam::Matrice_constructor(ni, mat_n, pt, *params);
             float sTemp = OrderParam::Eigen_value_evaluation(mat_n, vec_n);
             S1 += sTemp;
             S2 += sTemp * sTemp;
         }
-        
+
         // Cálculo de médias
         E /= params->MCS;
         E2 /= params->MCS;
         S1 /= params->MCS;
         S2 /= params->MCS;
-        
+
         // Saída
         char fname[100];
         sprintf(fname, "director_field_%d.csv", ii);
         print_n(fname, ni, *params, pt);
-        
+
         fprintf(po_file, "%d %g %g %g %g\n", ii, S1, S2 - S1 * S1, E, E2 - E * E);
         fflush(po_file);
     }
-    
+
     fclose(po_file);
     cleanupRNG(rng, num_threads);
     return 0;
@@ -457,22 +460,22 @@ int QuenchEvolveStrategy::run(float* ni, int* pt, Parameters* params,
                              float* surface_normals,
                              std::vector<AnchoringStrategy*>& anchoring_strategies) {
     printf("Initializing quench evolution:\n");
-    printf("Initial File Number= %d, Last File Number= %d\n\n", 
+    printf("Initial File Number= %d, Last File Number= %d\n\n",
            params->first_file, params->first_file + params->fn);
-    
+
     int num_threads = omp_get_max_threads();
     gsl_rng** rng;
     initializeRNG(&rng, num_threads);
-    
+
     FILE* po_file = fopen("po_quench.dat", "a");
     fprintf(po_file, "ii S varS E varE\n");
     fflush(po_file);
-    
-    printf("Quench relaxation using MCT=%d MCS=%d fn=%d with %d threads\n",
+
+    printf("Quench relaxation using MCT=%d MCS=%d fn=%d with %d threads\n\n",
            params->MCT, params->MCS, params->fn, num_threads);
-    
+
     quenchLoop(ni, pt, params, geometry_strategy, surface_normals, anchoring_strategies, rng, po_file);
-    
+
     fclose(po_file);
     cleanupRNG(rng, num_threads);
     return 0;
@@ -483,54 +486,54 @@ void QuenchEvolveStrategy::quenchLoop(float* ni, int* pt, Parameters* params,
                                      float* surface_normals,
                                      std::vector<AnchoringStrategy*>& anchoring_strategies,
                                      gsl_rng** rng, FILE* po_file) {
-    float ang_var = 0.5;
-    
+    float ang_var = 0.5f;
+
     for (int ii = params->first_file; ii < params->fn + params->first_file; ii++) {
-        
+
         // Fase de alta temperatura
         params->T = params->Ti;
         for (int step = 0; step < params->MCT; step++) {
             monteCarloStep(ang_var, rng, ni, pt, params, geometry_strategy,
                           surface_normals, anchoring_strategies);
         }
-        
+
         // Resfriamento rápido
         params->T = params->Tf;
         for (int step = 0; step < params->MCT * params->dT; step++) {
             monteCarloStep(ang_var, rng, ni, pt, params, geometry_strategy,
                           surface_normals, anchoring_strategies);
         }
-        
+
         // Coleta de estatísticas na temperatura final
         float S1 = 0, S2 = 0, E = 0, E2 = 0;
         float vec_n[3], mat_n[9];
-        
+
         for (int step = 0; step < params->MCS; step++) {
             monteCarloStep(ang_var, rng, ni, pt, params, geometry_strategy,
                           surface_normals, anchoring_strategies);
-            
+
             float tempE = energyCalculator(ni, pt, params, geometry_strategy,
                                          surface_normals, anchoring_strategies);
             E += tempE;
             E2 += tempE * tempE;
-            
+
             OrderParam::Matrice_constructor(ni, mat_n, pt, *params);
             float sTemp = OrderParam::Eigen_value_evaluation(mat_n, vec_n);
             S1 += sTemp;
             S2 += sTemp * sTemp;
         }
-        
+
         // Cálculo de médias
         E /= params->MCS;
         E2 /= params->MCS;
         S1 /= params->MCS;
         S2 /= params->MCS;
-        
+
         // Saída
         char fname[100];
         sprintf(fname, "director_field_%d.csv", ii);
         print_n(fname, ni, *params, pt);
-        
+
         fprintf(po_file, "%d %g %g %g %g\n", ii, S1, S2 - S1 * S1, E, E2 - E * E);
         fflush(po_file);
     }
@@ -542,21 +545,21 @@ int ElectricEvolveStrategy::run(float* ni, int* pt, Parameters* params,
                                std::vector<AnchoringStrategy*>& anchoring_strategies) {
     printf("Initializing electric field evolution:\n");
     printf("Ei= %g, Ef= %g, dE= %g\n\n", params->elecEi, params->elecEf, params->elecdE);
-    
+
     int num_threads = omp_get_max_threads();
     gsl_rng** rng;
     initializeRNG(&rng, num_threads);
-    
+
     FILE* po_file = fopen("po_electric.dat", "a");
     fprintf(po_file, "E S varS E_total varE\n");
     fflush(po_file);
-    
+
     printf("Starting electric field variation from %g to %g with step %g\n",
            params->elecEi, params->elecEf, params->elecdE);
-    printf("MCT=%d MCS=%d using %d threads\n", params->MCT, params->MCS, num_threads);
-    
+    printf("MCT=%d MCS=%d using %d threads\n\n", params->MCT, params->MCS, num_threads);
+
     electricLoop(ni, pt, params, geometry_strategy, surface_normals, anchoring_strategies, rng, po_file);
-    
+
     fclose(po_file);
     cleanupRNG(rng, num_threads);
     return 0;
@@ -567,49 +570,49 @@ void ElectricEvolveStrategy::electricLoop(float* ni, int* pt, Parameters* params
                                          float* surface_normals,
                                          std::vector<AnchoringStrategy*>& anchoring_strategies,
                                          gsl_rng** rng, FILE* po_file) {
-    float ang_var = 0.5;
+    float ang_var = 0.5f;
     int sign = (params->elecdE > 0) ? 1 : -1;
-    
-    for (params->elecE = params->elecEi; 
-         sign * (params->elecE - params->elecEf) <= 0; 
+
+    for (params->elecE = params->elecEi;
+         sign * (params->elecE - params->elecEf) <= 0;
          params->elecE += params->elecdE) {
-        
+
         // Passos de equilíbrio
         for (int step = 0; step < params->MCT; step++) {
             monteCarloStep(ang_var, rng, ni, pt, params, geometry_strategy,
                           surface_normals, anchoring_strategies);
         }
-        
+
         // Coleta de estatísticas
         float S1 = 0, S2 = 0, E = 0, E2 = 0;
         float vec_n[3], mat_n[9];
-        
+
         for (int step = 0; step < params->MCS; step++) {
             monteCarloStep(ang_var, rng, ni, pt, params, geometry_strategy,
                           surface_normals, anchoring_strategies);
-            
+
             float tempE = energyCalculator(ni, pt, params, geometry_strategy,
                                          surface_normals, anchoring_strategies);
             E += tempE;
             E2 += tempE * tempE;
-            
+
             OrderParam::Matrice_constructor(ni, mat_n, pt, *params);
             float sTemp = OrderParam::Eigen_value_evaluation(mat_n, vec_n);
             S1 += sTemp;
             S2 += sTemp * sTemp;
         }
-        
+
         // Cálculo de médias
         E /= params->MCS;
         E2 /= params->MCS;
         S1 /= params->MCS;
         S2 /= params->MCS;
-        
+
         // Saída
         char fname[100];
         sprintf(fname, "director_field_E_%d.csv", (int)(100 * (params->elecE + 1e-7)));
         print_n(fname, ni, *params, pt);
-        
+
         fprintf(po_file, "%g %g %g %g %g\n", params->elecE, S1, S2 - S1 * S1, E, E2 - E * E);
         fflush(po_file);
     }

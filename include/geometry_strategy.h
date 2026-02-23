@@ -19,9 +19,17 @@ public:
     
     // Métodos principais
     virtual int* setPointTypes(int* pt, Parameters* params, float* surface_normals) = 0;
-    virtual float calculatePotential(const nni fullni[7], Parameters* params, 
+
+    // ============================================================
+    // CORREÇÃO: fullni NÃO tem tamanho fixo 7 no seu código.
+    // No Monte Carlo você usa nLocal[8/20/28] dependendo de neighbourKind.
+    // Em C++ "const nni fullni[7]" decai para ponteiro, mas o "7" é enganoso
+    // e pode causar confusão/bugs. Mantemos a semântica correta: ponteiro.
+    // ============================================================
+    virtual float calculatePotential(const nni* fullni, Parameters* params, 
                                    std::vector<AnchoringStrategy*>& surfaces, 
                                    float* surface_normals) = 0;
+
     virtual void initializeGeometry(Parameters* params, float** surface_normals, 
                                   std::vector<AnchoringStrategy*>& surfaces) = 0;
     
@@ -36,9 +44,9 @@ public:
     }
     
     // Métodos utilitários compartilhados
-    float calculateNewmanNeighbours(const nni fullni[], Parameters* params);
-    float calculateSecondNeighbours(const nni fullni[], Parameters* params);
-    float calculateThirdNeighbours(const nni fullni[], Parameters* params);
+    float calculateNewmanNeighbours(const nni* fullni, Parameters* params);
+    float calculateSecondNeighbours(const nni* fullni, Parameters* params);
+    float calculateThirdNeighbours(const nni* fullni, Parameters* params);
     void initializeBoundaries(Parameters* params);
     
 protected:
@@ -50,9 +58,11 @@ protected:
 class BulkGeometryStrategy : public GeometryStrategy {
 public:
     int* setPointTypes(int* pt, Parameters* params, float* surface_normals) override;
-    float calculatePotential(const nni fullni[7], Parameters* params,
+
+    float calculatePotential(const nni* fullni, Parameters* params,
                            std::vector<AnchoringStrategy*>& surfaces, 
                            float* surface_normals) override;
+
     void initializeGeometry(Parameters* params, float** surface_normals,
                           std::vector<AnchoringStrategy*>& surfaces) override;
     
@@ -64,9 +74,11 @@ public:
 class SlabGeometryStrategy : public GeometryStrategy {
 public:
     int* setPointTypes(int* pt, Parameters* params, float* surface_normals) override;
-    float calculatePotential(const nni fullni[7], Parameters* params,
+
+    float calculatePotential(const nni* fullni, Parameters* params,
                            std::vector<AnchoringStrategy*>& surfaces, 
                            float* surface_normals) override;
+
     void initializeGeometry(Parameters* params, float** surface_normals,
                           std::vector<AnchoringStrategy*>& surfaces) override;
     
@@ -81,9 +93,11 @@ private:
 class SphereGeometryStrategy : public GeometryStrategy {
 public:
     int* setPointTypes(int* pt, Parameters* params, float* surface_normals) override;
-    float calculatePotential(const nni fullni[7], Parameters* params,
+
+    float calculatePotential(const nni* fullni, Parameters* params,
                            std::vector<AnchoringStrategy*>& surfaces, 
                            float* surface_normals) override;
+
     void initializeGeometry(Parameters* params, float** surface_normals,
                           std::vector<AnchoringStrategy*>& surfaces) override;
     
@@ -98,9 +112,11 @@ private:
 class CustomGeometryStrategy : public GeometryStrategy {
 public:
     int* setPointTypes(int* pt, Parameters* params, float* surface_normals) override;
-    float calculatePotential(const nni fullni[7], Parameters* params,
+
+    float calculatePotential(const nni* fullni, Parameters* params,
                            std::vector<AnchoringStrategy*>& surfaces, 
                            float* surface_normals) override;
+
     void initializeGeometry(Parameters* params, float** surface_normals,
                           std::vector<AnchoringStrategy*>& surfaces) override;
     

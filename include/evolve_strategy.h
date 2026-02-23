@@ -3,6 +3,8 @@
 
 #include <gsl/gsl_rng.h>
 #include <vector>
+#include <string>   // ← CORREÇÃO: std::string é usado neste header
+#include <cstdio>   // ← CORREÇÃO: FILE* é usado neste header
 #include "../include/define.h"
 #include "../include/parameters.h"
 

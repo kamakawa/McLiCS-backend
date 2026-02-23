@@ -1,11 +1,13 @@
 #include "../include/geometry_strategy.h"
-#include <gsl/gsl_rng.h>
+
+// --- System Includes ---
 #include <math.h>
 #include <string.h>
 #include <iostream>
-#include <map>
 #include <string>
 #include <vector>
+#include <cstdlib>   // ← MELHORIA: calloc/free
+#include <cstdio>    // ← MELHORIA: fprintf, stderr
 
 // --- Project Includes ---
 #include "../include/anchoring_strategy.h"
@@ -14,14 +16,18 @@
 
 // ========== Implementação dos Métodos Compartilhados ==========
 
-float GeometryStrategy::calculateNewmanNeighbours(const nni fullni[], Parameters* params) {
+// ============================================================
+// CORREÇÃO: Assinatura agora usa ponteiro (fullni não tem tamanho fixo).
+// Isso é consistente com o uso real (nLocal[8/20/28] no MonteCarlo).
+// ============================================================
+float GeometryStrategy::calculateNewmanNeighbours(const nni* fullni, Parameters* params) {
     float rij[3];
     double E = 0;
     float ni[3] = {fullni[0].x, fullni[0].y, fullni[0].z};
 
     if (!bulk_potential) {
         std::cerr << "Error: bulk_potential not set in GeometryStrategy!" << std::endl;
-        return 0.0;
+        return 0.0f;
     }
 
     // --- Eixo X ---
@@ -59,16 +65,16 @@ float GeometryStrategy::calculateNewmanNeighbours(const nni fullni[], Parameters
         rij[0] = 0; rij[1] = 0; rij[2] = -1;
         E += bulk_potential(ni, nj, params, rij, 1);
     }
-    return E;
+    return (float)E;
 }
 
-float GeometryStrategy::calculateSecondNeighbours(const nni fullni[], Parameters* params) {
+float GeometryStrategy::calculateSecondNeighbours(const nni* fullni, Parameters* params) {
     float rij[3];
     double E = 0;
     float ni[3] = {fullni[0].x, fullni[0].y, fullni[0].z};
-    const float isqrt2 = 0.707106781;
+    const float isqrt2 = 0.707106781f;
 
-    if (!bulk_potential) return 0.0;
+    if (!bulk_potential) return 0.0f;
 
     // --- Plano XY ---
     if (fullni[8].pt) {
@@ -135,16 +141,16 @@ float GeometryStrategy::calculateSecondNeighbours(const nni fullni[], Parameters
         rij[0] = 0; rij[1] = -isqrt2; rij[2] = -isqrt2;
         E += bulk_potential(ni, nj, params, rij, 2);
     }
-    return E;
+    return (float)E;
 }
 
-float GeometryStrategy::calculateThirdNeighbours(const nni fullni[], Parameters* params) {
+float GeometryStrategy::calculateThirdNeighbours(const nni* fullni, Parameters* params) {
     float rij[3];
     double E = 0;
     float ni[3] = {fullni[0].x, fullni[0].y, fullni[0].z};
-    const float isqrt3 = 0.577350269;
+    const float isqrt3 = 0.577350269f;
 
-    if (!bulk_potential) return 0.0;
+    if (!bulk_potential) return 0.0f;
 
     // --- Vertices Superiores (Z positivo) ---
     if (fullni[20].pt) {
@@ -189,7 +195,7 @@ float GeometryStrategy::calculateThirdNeighbours(const nni fullni[], Parameters*
         rij[0] = -isqrt3; rij[1] = -isqrt3; rij[2] = -isqrt3;
         E += bulk_potential(ni, nj, params, rij, 3);
     }
-    return E;
+    return (float)E;
 }
 
 void GeometryStrategy::initializeBoundaries(Parameters* params) {
@@ -237,7 +243,7 @@ int* BulkGeometryStrategy::setPointTypes(int* pt, Parameters* params, float* sur
     return pt;
 }
 
-float BulkGeometryStrategy::calculatePotential(const nni fullni[7], Parameters* params,
+float BulkGeometryStrategy::calculatePotential(const nni* fullni, Parameters* params,
                                              std::vector<AnchoringStrategy*>& surfaces, 
                                              float* surface_normals) {
     float E = calculateNewmanNeighbours(fullni, params);  // 1º
@@ -303,7 +309,7 @@ int* SlabGeometryStrategy::setPointTypes(int* pt, Parameters* params, float* sur
     return pt;
 }
 
-float SlabGeometryStrategy::calculatePotential(const nni fullni[7], Parameters* params,
+float SlabGeometryStrategy::calculatePotential(const nni* fullni, Parameters* params,
                                              std::vector<AnchoringStrategy*>& surfaces, 
                                              float* surface_normals) {
     float E = calculateNewmanNeighbours(fullni, params);  // 1º
@@ -316,14 +322,13 @@ float SlabGeometryStrategy::calculatePotential(const nni fullni[7], Parameters* 
     float ni[3] = {fullni[0].x, fullni[0].y, fullni[0].z};
     
     // Interação de Superfície - CORRIGIDO
+    // ============================================================
+    // MELHORIA/UNIFICAÇÃO:
+    // A normal de superfície já é passada em fullni[7] (preenchida no MonteCarloStep).
+    // Isso remove dependência do tipo de ponto e também corrige Sphere/Custom.
+    // ============================================================
     if (fullni[0].pt > 1) {
-        float s[3] = {0, 0, 0};
-        // Determinar normal baseada no tipo de ponto
-        if (fullni[0].pt == 2) {
-            s[2] = -1; // bottom surface
-        } else if (fullni[0].pt == 3) {
-            s[2] = 1;  // top surface
-        }
+        float s[3] = {fullni[7].x, fullni[7].y, fullni[7].z};
         E += surfaces[fullni[0].pt - 2]->calculateSurfacePotential(ni, s, params);
     }
 
@@ -378,6 +383,8 @@ int* SphereGeometryStrategy::setPointTypes(int* pt, Parameters* params, float* s
                 } 
                 else if (radius < Hz + 1) {
                     pt[idx] = 2;
+                    // OBS: radius pode ser 0 no centro, mas aqui estamos na casca (Hz±1),
+                    // então não deve ocorrer. Mantemos como estava.
                     surface_normals[idx * 3 + 0] = Rx / radius;
                     surface_normals[idx * 3 + 1] = Ry / radius;
                     surface_normals[idx * 3 + 2] = Rz / radius;
@@ -391,7 +398,7 @@ int* SphereGeometryStrategy::setPointTypes(int* pt, Parameters* params, float* s
     return pt;
 }
 
-float SphereGeometryStrategy::calculatePotential(const nni fullni[7], Parameters* params,
+float SphereGeometryStrategy::calculatePotential(const nni* fullni, Parameters* params,
                                                std::vector<AnchoringStrategy*>& surfaces, 
                                                float* surface_normals) {
     float E = calculateNewmanNeighbours(fullni, params);  // 1º
@@ -403,11 +410,11 @@ float SphereGeometryStrategy::calculatePotential(const nni fullni[7], Parameters
     
     float ni[3] = {fullni[0].x, fullni[0].y, fullni[0].z};
     
-    // CORREÇÃO CRÍTICA: Acessar normais corretamente
+    // CORREÇÃO CRÍTICA:
+    // Antes estava usando normal "default temporário".
+    // Agora usa a normal correta já fornecida em fullni[7].
     if (fullni[0].pt > 1) {
-        // Calcular índice do ponto atual (assumindo que você tem acesso às coordenadas)
-        // Ou melhor: modificar a interface para passar o índice
-        float s[3] = {0, 0, 1}; // Default temporário
+        float s[3] = {fullni[7].x, fullni[7].y, fullni[7].z};
         E += surfaces[fullni[0].pt - 2]->calculateSurfacePotential(ni, s, params);
     }
     
@@ -448,7 +455,7 @@ int* CustomGeometryStrategy::setPointTypes(int* pt, Parameters* params, float* s
     return pt;
 }
 
-float CustomGeometryStrategy::calculatePotential(const nni fullni[7], Parameters* params,
+float CustomGeometryStrategy::calculatePotential(const nni* fullni, Parameters* params,
                                                std::vector<AnchoringStrategy*>& surfaces, 
                                                float* surface_normals) {
     float E = calculateNewmanNeighbours(fullni, params);  // 1º
@@ -461,7 +468,7 @@ float CustomGeometryStrategy::calculatePotential(const nni fullni[7], Parameters
     float ni[3] = {fullni[0].x, fullni[0].y, fullni[0].z};
     
     if (fullni[0].pt > 1) {
-        float s[3] = {0, 0, 1}; // Default
+        float s[3] = {fullni[7].x, fullni[7].y, fullni[7].z};
         E += surfaces[fullni[0].pt - 2]->calculateSurfacePotential(ni, s, params);
     }
     

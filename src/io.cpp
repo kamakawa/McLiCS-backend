@@ -11,9 +11,47 @@
 #include "../include/ic.h"
 #include "../include/parameters.h"
 #include "../include/potential.h"
+#include "../include/parameter_order.h"  // ✅ NECESSÁRIO: OrderParam::lattice_order_parameter
+
+// ============================================================
+// Output Functions (Printing)
+// ============================================================
+
+// Imprime snapshot completo para simulações NBC (ni, bi, ci)
+// Mantém a assinatura pública declarada em io.h.
+int print_nbc(char *fname, float *ni, float *bi, float *ci, const Parameters& params) {
+  FILE *output = fopen(fname, "w");
+  if (output == 0) {
+    perror(fname);
+    return 1;
+  }
+
+  fprintf(output, "x,y,z,nx,ny,nz,bx,by,bz,cx,cy,cz\n");
+
+  const int Nx = params.Nx;
+  const int Ny = params.Ny;
+  const int Nz = params.Nz;
+
+  for (int k = 0; k < Nz; k++) {
+    for (int j = 0; j < Ny; j++) {
+      for (int i = 0; i < Nx; i++) {
+        fprintf(output, "%d,%d,%d,%g,%g,%g,%g,%g,%g,%g,%g,%g\n",
+                i, j, k,
+                nix(i, j, k), niy(i, j, k), niz(i, j, k),
+                bix(i, j, k), biy(i, j, k), biz(i, j, k),
+                cix(i, j, k), ciy(i, j, k), ciz(i, j, k));
+      }
+    }
+  }
+
+  printf("Snapshot saved in %s\n", fname);
+  fflush(stdout);
+  fclose(output);
+  return 0;
+}
 
 // Imprime o snapshot do sistema (vetores e parametro de ordem)
-int print_n(char *fname, float *ni, Parameters params, int *pt) {
+int print_n(char *fname, float *ni, const Parameters& params, int *pt) {
   int Nx = params.Nx;
   int Ny = params.Ny;
   int Nz = params.Nz;
@@ -258,7 +296,7 @@ Parameters read_input_file(char *fname) {
   return input_params;
 }
 
-void print_parameters(Parameters params) {
+void print_parameters(const Parameters& params) {
   printf("###Using the following parameters for this simulation.###\n");
   printf("Nx  %d\n", params.Nx);
   printf("Ny  %d\n", params.Ny);

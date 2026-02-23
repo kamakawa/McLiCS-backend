@@ -177,23 +177,14 @@ int simulator::run_evolution() {
 
 // Imprime snapshot (Wrapper para a funcao io)
 int simulator::print_n(char *fname, Parameters *params) {
-  FILE *output = fopen(fname, "w");
-  if (output == 0) {
-    perror(fname);
-    return 1;
-  }
-  fprintf(output, "x,y,z,nx,ny,nz,s,pt\n");
-
-  for (int k = 0; k < params->Nz; k++) {
-    for (int j = 0; j < params->Ny; j++) {
-      for (int i = 0; i < params->Nx; i++) {
-        fprintf(output, "%d,%d,%d,%g,%g,%g,1,%d\n", i, j, k,
-                nix(i, j, k), niy(i, j, k), niz(i, j, k), pti(i, j, k));
-      }
-    }
-  }
-  printf("Snapshot saved in %s\n", fname);
-  fflush(stdout);
-  fclose(output);
-  return 0;
+  // ============================================================
+  // IMPORTANTE:
+  //  - Mantemos a API pública do simulator (sim->print_n(...))
+  //  - Mas DELEGAMOS a implementação oficial (io.cpp), evitando
+  //    duplicação e garantindo que todas as saídas usem o mesmo
+  //    formato/parametrização (inclui cálculo de S local).
+  //  - Isso também facilita a migração CUDA (um único lugar para
+  //    evoluir IO/formatos).
+  // ============================================================
+  return ::print_n(fname, ni, *params, pt);
 }

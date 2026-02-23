@@ -2,8 +2,10 @@
 #define PARAMETER_ORDER_H_
 
 // --- System Includes ---
-#include <gsl/gsl_eigen.h>
-#include <iostream>
+// ============================================================
+// MELHORIA: evitar incluir GSL no header (reduz acoplamento e
+// tempo de compilação). Inclua GSL apenas no .cpp.
+// ============================================================
 
 // --- Project Includes ---
 #include "../include/define.h"

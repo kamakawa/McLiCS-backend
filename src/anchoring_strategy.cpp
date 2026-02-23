@@ -1,6 +1,9 @@
 #include <math.h>
 #include <iostream>
-#include <map>
+#include <string>
+#include <vector>
+#include <cstdio>   // ← MELHORIA: printf/fprintf
+#include <cstdlib>  // ← MELHORIA: exit
 
 // --- Project Includes ---
 #include "../include/anchoring_strategy.h"
@@ -9,16 +12,26 @@
 // ========== Implementação do Método Utilitário Compartilhado ==========
 
 void AnchoringStrategy::checkParameter(bool hasValue, const std::string& parameterName, int id, const std::string& strategyName) {
+    // ============================================================
+    // CORREÇÃO: a lógica original estava invertida/ambígua.
+    // - hasValue == true  -> parâmetro existe, ok.
+    // - hasValue == false -> parâmetro não existe, aborta.
+    //
+    // Obs: no seu código atual você sempre chama com false quando falta.
+    // Mantemos a intenção e deixamos consistente.
+    // ============================================================
     if (hasValue) {
-        std::cout << "Parameter " << parameterName << " is not set. Using standard value.\n";
-    } else {
-        std::cout << "Parameter " << parameterName << " not defined for the boundary condition "
-                  << "#" << id << ".\n";
-        std::cout << "The boundary condition " << strategyName << " needs the aforementioned parameter defined.\n";
-        std::cout << "Please, set it in your input file, or check if it is mispelled.\n";
-        std::cout << "Aborting the program.\n";
-        exit(1);
+        // Caso você no futuro queira aceitar default: pode tratar aqui.
+        std::cout << "Parameter " << parameterName << " is set.\n";
+        return;
     }
+
+    std::cout << "Parameter " << parameterName << " not defined for the boundary condition "
+              << "#" << id << ".\n";
+    std::cout << "The boundary condition " << strategyName << " needs the aforementioned parameter defined.\n";
+    std::cout << "Please, set it in your input file, or check if it is mispelled.\n";
+    std::cout << "Aborting the program.\n";
+    exit(1);
 }
 
 // ========== Implementação do Strong Anchoring ==========
@@ -53,7 +66,10 @@ void StrongAnchoringStrategy::initialize(Parameters* params, int id) {
 }
 
 float StrongAnchoringStrategy::calculateSurfacePotential(float ni[3], float s[3], Parameters* params) {
-    const float toPi = M_PI / 180.0f;
+    (void)s;     // s não é usado nessa estratégia (mantemos assinatura)
+    (void)params;
+
+    constexpr float toPi = (float)(M_PI / 180.0);
     
     float n_s[3] = {
         cos(toPi * phi_s_) * sin(toPi * theta_s_),
@@ -98,7 +114,10 @@ void StrongAnchoringGHRLStrategy::initialize(Parameters* params, int id) {
 }
 
 float StrongAnchoringGHRLStrategy::calculateSurfacePotential(float ni[3], float s[3], Parameters* params) {
-    const float toPi = M_PI / 180.0f;
+    (void)s;
+    (void)params;
+
+    constexpr float toPi = (float)(M_PI / 180.0);
     
     float n_s[3] = {
         cos(toPi * phi_s_) * sin(toPi * theta_s_),
@@ -152,7 +171,10 @@ void RPAnchoringStrategy::initialize(Parameters* params, int id) {
 }
 
 float RPAnchoringStrategy::calculateSurfacePotential(float ni[3], float s[3], Parameters* params) {
-    const float toPi = M_PI / 180.0f;
+    (void)s;
+    (void)params;
+
+    constexpr float toPi = (float)(M_PI / 180.0);
     
     float n_s[3] = {
         cos(toPi * phi_s_) * sin(toPi * theta_s_),
@@ -206,7 +228,7 @@ void RPAnchoringGHRLStrategy::initialize(Parameters* params, int id) {
 }
 
 float RPAnchoringGHRLStrategy::calculateSurfacePotential(float ni[3], float s[3], Parameters* params) {
-    const float toPi = M_PI / 180.0f;
+    constexpr float toPi = (float)(M_PI / 180.0);
     
     float nj[3] = {
         cos(toPi * phi_s_) * sin(toPi * theta_s_),
@@ -220,8 +242,8 @@ float RPAnchoringGHRLStrategy::calculateSurfacePotential(float ni[3], float s[3]
     const float er = params->ghrl_rho;
     const float es = params->ghrl_sigma;
     
-    float v15 = 1.5;
-    float v05 = 0.5;
+    constexpr float v15 = 1.5f;
+    constexpr float v05 = 0.5f;
 
     float ai = ni[0] * s[0] + ni[1] * s[1] + ni[2] * s[2];
     float aj = nj[0] * s[0] + nj[1] * s[1] + nj[2] * s[2];
@@ -235,8 +257,8 @@ float RPAnchoringGHRLStrategy::calculateSurfacePotential(float ni[3], float s[3]
 
     float E1 = ((v15 * ai * ai) + (v15 * aj * aj) - 1);
     
-    return W_ * ((E1 * (er * pij + el) + em * (ai * aj * nij) - (1.0 / 9.0)) + 
-                en * pij + es * (nij > 0 ? 1 : -1) * cross);
+    return W_ * ((E1 * (er * pij + el) + em * (ai * aj * nij) - (1.0f / 9.0f)) + 
+                en * pij + es * (nij > 0 ? 1.0f : -1.0f) * cross);
 }
 
 // ========== Implementação do Fournier-Galatola ==========
@@ -266,8 +288,8 @@ void FGAnchoringStrategy::initialize(Parameters* params, int id) {
 }
 
 float FGAnchoringStrategy::calculateSurfacePotential(float ni[3], float s[3], Parameters* params) {
+    (void)params;
     float nij = ni[0] * s[0] + ni[1] * s[1] + ni[2] * s[2];
-    
     return +W_ * nij * nij;
 }
 
@@ -304,8 +326,8 @@ float FGAnchoringGHRLStrategy::calculateSurfacePotential(float ni[3], float s[3]
     const float er = params->ghrl_rho;
     const float es = params->ghrl_sigma;
     
-    float v15 = 1.5;
-    float v05 = 0.5;
+    constexpr float v15 = 1.5f;
+    constexpr float v05 = 0.5f;
 
     float mod = sqrtf(fabs(ni[0] * s[0] + ni[1] * s[1] + ni[2] * s[2]));
     float nj[3] = {ni[0] - s[0] * mod, ni[1] - s[1] * mod, ni[2] - s[2] * mod};
@@ -329,8 +351,8 @@ float FGAnchoringGHRLStrategy::calculateSurfacePotential(float ni[3], float s[3]
 
     float E1 = ((v15 * ai * ai) + (v15 * aj * aj) - 1);
     
-    return W_ * ((E1 * (er * pij + el) + em * (ai * aj * nij) - (1.0 / 9.0)) + 
-                en * pij + es * (nij > 0 ? 1 : -1) * cross);
+    return W_ * ((E1 * (er * pij + el) + em * (ai * aj * nij) - (1.0f / 9.0f)) + 
+                en * pij + es * (nij > 0 ? 1.0f : -1.0f) * cross);
 }
 
 // ========== Implementação do Homeotropic ==========
@@ -360,8 +382,8 @@ void HomeotropicAnchoringStrategy::initialize(Parameters* params, int id) {
 }
 
 float HomeotropicAnchoringStrategy::calculateSurfacePotential(float ni[3], float s[3], Parameters* params) {
+    (void)params;
     float nij = ni[0] * s[0] + ni[1] * s[1] + ni[2] * s[2];
-    
     return -W_ * nij * nij;
 }
 
@@ -394,11 +416,11 @@ float HomeotropicAnchoringGHRLStrategy::calculateSurfacePotential(float ni[3], f
     const float er = params->ghrl_rho;
     const float es = params->ghrl_sigma;
     
-    float v15 = 1.5;
-    float v05 = 0.5;
+    constexpr float v15 = 1.5f;
+    constexpr float v05 = 0.5f;
 
     float ai = ni[0] * s[0] + ni[1] * s[1] + ni[2] * s[2];
-    float aj = 1.0;
+    float aj = 1.0f;
     float nij = ni[0] * s[0] + ni[1] * s[1] + ni[2] * s[2];
     
     float pij = v15 * nij * nij - v05;
@@ -407,10 +429,10 @@ float HomeotropicAnchoringGHRLStrategy::calculateSurfacePotential(float ni[3], f
                   (ni[0] * s[2] - ni[2] * s[0]) * s[1] + 
                   (ni[1] * s[0] - ni[0] * s[1]) * s[2];
 
-    float E1 = ((v15 * ai * ai) + (v15 * aj * aj) - 1);
+    float E1 = ((v15 * ai * ai) + (v15 * aj * aj) - 1.0f);
 
-    return W_ * ((E1 * (er * pij + el) + em * (ai * aj * nij) - (1.0 / 9.0)) + 
-                en * pij + es * (nij > 0 ? 1 : -1) * cross);
+    return W_ * ((E1 * (er * pij + el) + em * (ai * aj * nij) - (1.0f / 9.0f)) + 
+                en * pij + es * (nij > 0 ? 1.0f : -1.0f) * cross);
 }
 
 // ========== Factory Method ==========
@@ -440,8 +462,15 @@ AnchoringStrategy* AnchoringStrategyFactory::create(const std::string& anchoring
 
 void AnchoringStrategyFactory::initializeAnchoringStrategies(Parameters* params, std::vector<AnchoringStrategy*>& strategies) {
     std::string anchoring;
-    int numSurfaces = strategies.capacity(); // Assume que o vector tem capacidade pré-alocada
-    
+
+    // ============================================================
+    // CORREÇÃO CRÍTICA:
+    // usar size(), não capacity().
+    // O chamador faz resize(num_surfaces). capacity pode ser maior e
+    // causar acesso fora do range (crash).
+    // ============================================================
+    const int numSurfaces = (int)strategies.size();
+
     for (int ii = 0; ii < numSurfaces; ii++) {
         try {
             anchoring = params->anchoring_type.at(ii);

@@ -4,6 +4,8 @@
 // --- System Includes ---
 #include <string>
 #include <vector>
+#include <cstdio>   // ← MELHORIA: fprintf/printf (robustez)
+#include <cstdlib>  // ← MELHORIA: exit (robustez)
 
 // --- Project Includes ---
 #include "../include/parameters.h"
