@@ -77,53 +77,42 @@ void EvolveStrategy::monteCarloStep(float& ang_var, gsl_rng** r, float* ni, int*
 // CUDA PATH: apenas BULK + neighbourKind==1 + LL (primeira etapa)
 // ============================================================
 #ifdef USE_CUDA
-    static std::uint64_t call_counter = 0;
-
-    ParamsDevice hp = packParamsDevice(*params);
-
-    const std::uint64_t seed =
-        (std::uint64_t)(params->T * 1000000.0f) ^
-        (std::uint64_t)(params->Nx * 73856093u) ^
-        (std::uint64_t)(params->Ny * 19349663u) ^
-        (std::uint64_t)(params->Nz * 83492791u) ^
-        ((++call_counter) * 0x9E3779B97F4A7C15ULL);
-
-    int acceptance_gpu = 0;
-    mc_bulk_step_inplace(ni, pt, hp, ang_var, seed, acceptance_gpu);
-    
-    // CUDA path robusto: Bulk Geometry, neighbourKind 1/2/3, potenciais via dispatch (LL/GHRL/PEAR)
     const bool is_bulk = (geometry_strategy && geometry_strategy->getName() == std::string("Bulk Geometry"));
 
-    // (Bulk não precisa surface_normals nem anchoring no potencial bulk)
     if (is_bulk) {
-
-        // Empacota params CPU -> ParamsDevice (usa seu pack_device_params.cu/.cuh)
+        // Empacota params CPU -> ParamsDevice
         ParamsDevice hp = packParamsDevice(*params);
 
         // ------------------------------------------------------------
-        // CRÍTICO: seed NÃO pode ser constante a cada monteCarloStep().
-        // No CPU o gsl_rng evolui a cada passo.
-        // Aqui usamos um contador monotônico por processo (simulação).
-        // E aplicamos splitmix64 para quebrar padrões.
+        // Init persistente (pt + ni uma vez). Depois só roda kernel + D2H.
         // ------------------------------------------------------------
-        static std::uint64_t call_counter = 0;
-        const std::uint64_t ctr = call_counter++;
+        static bool gpu_inited = false;
+        static int  gpuNx = 0, gpuNy = 0, gpuNz = 0;
 
-        // base mistura T + dimensões + contador
-        std::uint64_t base =
+        if (!gpu_inited || gpuNx != params->Nx || gpuNy != params->Ny || gpuNz != params->Nz) {
+            mc_bulk_step_init(ni, pt, hp);
+            gpu_inited = true;
+            gpuNx = params->Nx; gpuNy = params->Ny; gpuNz = params->Nz;
+        } else {
+            // Se só mudou T/campo etc, atualiza params no device
+            mc_bulk_step_update_params(hp);
+        }
+
+        // seed que varia por chamada (equivalente ao RNG do CPU evoluindo)
+        static std::uint64_t call_counter = 0;
+        const std::uint64_t ctr = ++call_counter;
+
+        const std::uint64_t seed =
             (std::uint64_t)(params->T * 1000000.0f) ^
             (std::uint64_t)(params->Nx * 73856093u) ^
             (std::uint64_t)(params->Ny * 19349663u) ^
             (std::uint64_t)(params->Nz * 83492791u) ^
             (ctr * 0x9E3779B97F4A7C15ULL);
 
-        // embaralha de verdade
-        const std::uint64_t seed = splitmix64(base);
-
         int acceptance_gpu = 0;
 
-        // Chamada robusta (mesma “arquitetura” do CPU: bulk_energy_dispatch + potential_device.cuh)
-        mc_bulk_step_inplace(ni, pt, hp, ang_var, seed, acceptance_gpu);
+        // Roda 1 step e baixa ni (porque você usa logo depois no energyCalculator/parameterOrder)
+        mc_bulk_step_run_download(ni, ang_var, seed, acceptance_gpu);
 
         // Ajuste dinâmico do passo angular (igual CPU)
         float acceptance_rate = 1.0f * acceptance_gpu / valid_points;

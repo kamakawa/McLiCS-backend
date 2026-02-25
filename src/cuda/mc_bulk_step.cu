@@ -6,7 +6,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
-#include <cstdint>
 
 #include "../../include/cuda/potential_device.cuh"
 #include "../../include/cuda/params_device.cuh"
@@ -21,7 +20,7 @@
 } while(0)
 #endif
 
-// ---------------- RNG simples por thread (xorshift32) ----------------
+// ---------------- RNG simples por thread (stateless) ----------------
 __device__ __forceinline__ uint32_t xorshift32(uint32_t& s) {
   uint32_t x = s;
   x ^= x << 13;
@@ -31,19 +30,7 @@ __device__ __forceinline__ uint32_t xorshift32(uint32_t& s) {
   return x;
 }
 __device__ __forceinline__ float u01(uint32_t& s) {
-  // 24 bits
-  return (xorshift32(s) >> 8) * (1.0f / 16777216.0f);
-}
-
-// ---------------- splitmix64 para espalhar seed ----------------
-__device__ __forceinline__ std::uint64_t splitmix64_device(std::uint64_t x) {
-  x += 0x9E3779B97F4A7C15ULL;
-  x = (x ^ (x >> 30)) * 0xBF58476D1CE4E5B9ULL;
-  x = (x ^ (x >> 27)) * 0x94D049BB133111EBULL;
-  return x ^ (x >> 31);
-}
-__device__ __forceinline__ uint32_t splitmix32_device(std::uint64_t x) {
-  return (uint32_t)(splitmix64_device(x) >> 32);
+  return (xorshift32(s) >> 8) * (1.0f / 16777216.0f); // 24 bits
 }
 
 // ---------------- rotação (igual ao CPU) ----------------
@@ -71,7 +58,7 @@ __device__ __forceinline__ void rotate_vector(float x, float y, float z,
   ox *= invn; oy *= invn; oz *= invn;
 }
 
-// ---------------- seletor de energia bulk (arquitetura robusta) ----------------
+// ---------------- seletor de energia bulk (robusto) ----------------
 __device__ __forceinline__ float bulk_energy_dispatch(
     BulkPotentialType t,
     const float ni[3], const float nj[3],
@@ -127,13 +114,9 @@ __global__ void mc_bulk_kernel_tick(
   const int idx = i + Nx * (j + Ny * k);
   if (pt[idx] == 0) return;
 
-  // RNG (por thread+tick; seed vem do host)
-  // OBS: splitmix espalha os bits do seed e reduz correlação => melhora varE/varS
-  const std::uint64_t key =
-      seed ^ (0xD1B54A32D192ED03ULL
-              + (std::uint64_t)nt   * 0x9E3779B97F4A7C15ULL
-              + (std::uint64_t)tick * 0xBF58476D1CE4E5B9ULL);
-  uint32_t rng = splitmix32_device(key);
+  // RNG (por thread+tick; seed vem do host e varia por chamada)
+  uint32_t rng = (uint32_t)(seed
+    ^ (0x9E3779B9u + (uint32_t)nt * 0x85EBCA6Bu + (uint32_t)tick * 0xC2B2AE35u));
 
   const float va = (2.0f * u01(rng) - 1.0f) * ang_var;
   const float rotType = u01(rng);
@@ -149,8 +132,7 @@ __global__ void mc_bulk_kernel_tick(
   const float n_old[3] = {ox, oy, oz};
   const float n_new[3] = {nx, ny, nz};
 
-  // >>> CRÍTICO p/ variância: acumular em double <<<
-  double Eold = 0.0, Enew = 0.0;
+  float Eold = 0.0f, Enew = 0.0f;
 
   // ---------------- 1o vizinhos (6) ----------------
   {
@@ -178,8 +160,8 @@ __global__ void mc_bulk_kernel_tick(
       const int nbase = nidx * 3;
       const float n_nb[3] = {ni[nbase+0], ni[nbase+1], ni[nbase+2]};
 
-      Eold += (double)bulk_energy_dispatch(p->bulkType, n_old, n_nb, p, rijv[t], 1);
-      Enew += (double)bulk_energy_dispatch(p->bulkType, n_new, n_nb, p, rijv[t], 1);
+      Eold += bulk_energy_dispatch(p->bulkType, n_old, n_nb, p, rijv[t], 1);
+      Enew += bulk_energy_dispatch(p->bulkType, n_new, n_nb, p, rijv[t], 1);
     }
   }
 
@@ -212,8 +194,8 @@ __global__ void mc_bulk_kernel_tick(
       const int nbase=nidx*3;
       const float n_nb[3] = {ni[nbase+0], ni[nbase+1], ni[nbase+2]};
 
-      Eold += (double)bulk_energy_dispatch(p->bulkType, n_old, n_nb, p, rij[t], 2);
-      Enew += (double)bulk_energy_dispatch(p->bulkType, n_new, n_nb, p, rij[t], 2);
+      Eold += bulk_energy_dispatch(p->bulkType, n_old, n_nb, p, rij[t], 2);
+      Enew += bulk_energy_dispatch(p->bulkType, n_new, n_nb, p, rij[t], 2);
     }
   }
 
@@ -244,26 +226,25 @@ __global__ void mc_bulk_kernel_tick(
       const int nbase=nidx*3;
       const float n_nb[3] = {ni[nbase+0], ni[nbase+1], ni[nbase+2]};
 
-      Eold += (double)bulk_energy_dispatch(p->bulkType, n_old, n_nb, p, rij[t], 3);
-      Enew += (double)bulk_energy_dispatch(p->bulkType, n_new, n_nb, p, rij[t], 3);
+      Eold += bulk_energy_dispatch(p->bulkType, n_old, n_nb, p, rij[t], 3);
+      Enew += bulk_energy_dispatch(p->bulkType, n_new, n_nb, p, rij[t], 3);
     }
   }
 
   // ---------------- campo elétrico ----------------
-  Eold += (double)electric_energy(n_old, p);
-  Enew += (double)electric_energy(n_new, p);
+  Eold += electric_energy(n_old, p);
+  Enew += electric_energy(n_new, p);
 
-  const double dE = Enew - Eold;
+  const float dE = Enew - Eold;
   const float u = u01(rng);
 
-  // Metropolis (double no exp => melhora estabilidade estatística)
-  if (dE < 0.0 || u < (float)exp(-dE / (double)p->T)) {
+  if (dE < 0.0f || u < __expf(-dE / p->T)) {
     ni[base+0]=nx; ni[base+1]=ny; ni[base+2]=nz;
     atomicAdd(acceptance_out, 1);
   }
 }
 
-// ---------------- estado device persistente ----------------
+// ---------------- estado persistente no device ----------------
 struct DeviceState {
   float* d_ni = nullptr;
   int*   d_pt = nullptr;
@@ -282,7 +263,7 @@ static void ensure_buffers(int Nx, int Ny, int Nz) {
   const std::size_t N = (std::size_t)Nx * (std::size_t)Ny * (std::size_t)Nz;
 
   const std::size_t bytes_ni = 3ULL * N * sizeof(float);
-  const std::size_t bytes_pt = 1ULL * N * sizeof(int); // só N (pt[idx]) é usado
+  const std::size_t bytes_pt = 1ULL * N * sizeof(int);
 
   if (g_state.inited && g_state.Nx==Nx && g_state.Ny==Ny && g_state.Nz==Nz) {
     g_state.bytes_ni = bytes_ni;
@@ -307,25 +288,39 @@ static void ensure_buffers(int Nx, int Ny, int Nz) {
   g_state.inited = true;
 }
 
-extern "C" void mc_bulk_step_inplace(
-    float* h_ni, int* h_pt,
-    const ParamsDevice& hp,
+extern "C" void mc_bulk_step_init(
+    const float* h_ni,
+    const int*   h_pt,
+    const ParamsDevice& hp
+) {
+  ensure_buffers(hp.Nx, hp.Ny, hp.Nz);
+
+  CUDA_CHECK(cudaMemcpy(g_state.d_params, &hp, sizeof(ParamsDevice), cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(g_state.d_pt, h_pt, g_state.bytes_pt, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(g_state.d_ni, h_ni, g_state.bytes_ni, cudaMemcpyHostToDevice));
+}
+
+extern "C" void mc_bulk_step_update_params(const ParamsDevice& hp) {
+  if (!g_state.inited) return;
+  CUDA_CHECK(cudaMemcpy(g_state.d_params, &hp, sizeof(ParamsDevice), cudaMemcpyHostToDevice));
+}
+
+extern "C" void mc_bulk_step_upload_ni(const float* h_ni) {
+  if (!g_state.inited) return;
+  CUDA_CHECK(cudaMemcpy(g_state.d_ni, h_ni, g_state.bytes_ni, cudaMemcpyHostToDevice));
+}
+
+extern "C" void mc_bulk_step_run_download(
+    float* h_ni,
     float ang_var,
     std::uint64_t seed,
     int& acceptance_out
 ) {
-  ensure_buffers(hp.Nx, hp.Ny, hp.Nz);
-
-  // upload params
-  CUDA_CHECK(cudaMemcpy(g_state.d_params, &hp, sizeof(ParamsDevice), cudaMemcpyHostToDevice));
-
-  // upload lattice
-  CUDA_CHECK(cudaMemcpy(g_state.d_ni, h_ni, g_state.bytes_ni, cudaMemcpyHostToDevice));
-  CUDA_CHECK(cudaMemcpy(g_state.d_pt, h_pt, g_state.bytes_pt, cudaMemcpyHostToDevice));
+  if (!g_state.inited) { acceptance_out = 0; return; }
 
   CUDA_CHECK(cudaMemset(g_state.d_acc, 0, sizeof(int)));
 
-  const int Nx=hp.Nx, Ny=hp.Ny, Nz=hp.Nz;
+  const int Nx=g_state.Nx, Ny=g_state.Ny, Nz=g_state.Nz;
   const int Ni = Nx/2 + (Nx%2);
   const int Nj = Ny/2 + (Ny%2);
   const int Nk = Nz/2 + (Nz%2);
@@ -349,6 +344,14 @@ extern "C" void mc_bulk_step_inplace(
   CUDA_CHECK(cudaMemcpy(h_ni, g_state.d_ni, g_state.bytes_ni, cudaMemcpyDeviceToHost));
 
   acceptance_out = h_acc;
+}
+
+extern "C" void mc_bulk_step_release() {
+  if (g_state.d_ni) CUDA_CHECK(cudaFree(g_state.d_ni));
+  if (g_state.d_pt) CUDA_CHECK(cudaFree(g_state.d_pt));
+  if (g_state.d_acc) CUDA_CHECK(cudaFree(g_state.d_acc));
+  if (g_state.d_params) CUDA_CHECK(cudaFree(g_state.d_params));
+  g_state = DeviceState{};
 }
 
 #endif // USE_CUDA
