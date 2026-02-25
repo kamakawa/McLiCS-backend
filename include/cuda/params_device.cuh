@@ -2,8 +2,10 @@
 
 #ifdef __CUDACC__
   #define HD __host__ __device__
+  #define FINLINE __forceinline__
 #else
   #define HD
+  #define FINLINE inline
 #endif
 
 #include <cstdint>
@@ -17,6 +19,7 @@ enum class BulkPotentialType : int32_t { LL = 0, GHRL = 1, PEAR = 2 };
 // Evolve type (caso você queira roteamento no futuro)
 enum class EvolveType : int32_t { Thermal = 0, Step = 1, Quench = 2, Electric = 3 };
 
+// Params POD para copiar Host -> Device (ideal para __constant__ no futuro, se quiser)
 struct ParamsDevice {
   // lattice
   int32_t Nx, Ny, Nz;
@@ -42,12 +45,18 @@ struct ParamsDevice {
 };
 
 // -------- device boundary helpers --------
-HD inline int boundary_apply(BoundType bt, int &ii, int NN) {
+// Observação: usamos referência para "aplicar" a condição (igual ao CPU),
+// e retornamos 0/1 para indicar se vizinho é válido (free) ou sempre válido (periodic).
+HD FINLINE int boundary_apply(BoundType bt, int &ii, int NN) {
   if (bt == BoundType::Periodic) {
-    ii = (ii + NN) % NN;
+    // Protege contra ii negativo (útil se no futuro usar saltos maiores que 1)
+    int r = ii % NN;
+    ii = (r < 0) ? (r + NN) : r;
     return 1;
   }
+
   // Free boundary:
-  if (ii == -1 || ii == NN) return 0;
+  // (manter exatamente o comportamento do CPU: fora do domínio => vizinho inválido)
+  if (ii < 0 || ii >= NN) return 0;
   return 1;
 }

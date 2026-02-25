@@ -1,77 +1,61 @@
-PROGRAM := mc_sim
-########### Gnu:
-COMPILER := g++ 
-GPUCOMP  := nvcc
-FLAGS    :=  -O3  -fopenmp -static
-GPUFLAGS :=  -O3
-LIB := -lm  -lgsl -lgslcblas  -lgomp 
-USECUDA:=-D CUDA__="CUDA"
-ifeq (,$(shell which nvcc))
-	.DEFAULT_GOAL=CPU
-	USECUDA:= 
+PROGRAM   := mc_sim
+CXX       := g++
+NVCC      := /usr/bin/nvcc
+
+# Flags base (CPU puro)
+CXXFLAGS      := -O3 -fopenmp -Iinclude
+CXXFLAGS_CUDA := $(CXXFLAGS) -DUSE_CUDA
+
+# Flags CUDA
+NVCCFLAGS := -O3 -lineinfo -Iinclude -DUSE_CUDA
+
+LIBS      := -lm -lgsl -lgslcblas -lgomp
+
+HAVE_CUDA := $(shell command -v $(NVCC) >/dev/null 2>&1 && echo 1 || echo 0)
+
+# fontes
+CPPS  := $(wildcard src/*.cpp)
+CUSRC := $(wildcard src/cuda/*.cu)
+
+# headers (RECURSIVO, inclui include/cuda/*.cuh)
+HEADERS := $(shell find include -type f \( -name "*.h" -o -name "*.hpp" -o -name "*.cuh" \))
+
+# objetos
+OBJS    := $(patsubst src/%.cpp,build/%.o,$(CPPS))
+CUOBJS  := $(patsubst src/cuda/%.cu,build/cuda/%.cu.o,$(CUSRC))
+
+ifeq ($(HAVE_CUDA),1)
+.DEFAULT_GOAL := all
+else
+.DEFAULT_GOAL := cpu
 endif
 
-# ========== NOVOS ARQUIVOS ==========
-CPPS := $(wildcard src/*.cpp)
-CUDA := $(wildcard src/*.cu)
-HEADER := $(wildcard include/*.h)
+all: $(PROGRAM)
+cpu: $(PROGRAM)_cpu
 
-# REMOVER arquivos antigos de evolve
-OLD_EVOLVE := src/evolve_thermal.cpp src/evolve_step.cpp src/evolve_quench.cpp src/evolve_electric.cpp src/evolve.cpp
-CPPS := $(filter-out $(OLD_EVOLVE),$(CPPS))
+# ---------------- link ----------------
+# GPU build (compila .cpp com USE_CUDA + linka .cu)
+$(PROGRAM): CXXFLAGS := $(CXXFLAGS_CUDA)
+$(PROGRAM): $(OBJS) $(CUOBJS) | build build/cuda
+	$(NVCC) -O3 -lineinfo $(CUOBJS) $(OBJS) $(LIBS) -o $@
 
-OBJS  := $(patsubst src/%.cpp,build/%.o,${CPPS})
-CBJS  := $(patsubst src/%.cu,build/%.cuda.o,${CUDA})
-DBGOBJS  := $(patsubst src/%.cpp,build/%dbg.o,${CPPS})
-DBGCBJS  := $(patsubst src/%.cu,build/%dbg.cuda.o,${CUDA})
+# CPU build (NÃO define USE_CUDA e não linka objetos CUDA)
+$(PROGRAM)_cpu: CXXFLAGS := $(CXXFLAGS)
+$(PROGRAM)_cpu: $(OBJS) | build
+	$(CXX) $(CXXFLAGS) $(OBJS) $(LIBS) -o $@
 
-all:${PROGRAM}
+# ---------------- compile cpp ----------------
+build/%.o: src/%.cpp $(HEADERS) | build
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-${PROGRAM}: ${OBJS} ${CBJS}
-	@${GPUCOMP} ${GPUFLAGS} $(filter-out build/simulator.o,${OBJS}) ${CBJS} ${LIB} -o ${PROGRAM}
+# ---------------- compile cu ----------------
+build/cuda/%.cu.o: src/cuda/%.cu $(HEADERS) | build build/cuda
+	$(NVCC) $(NVCCFLAGS) -dc -c $< -o $@
 
-CPU: $(filter-out build/simulatorGPU.o,${OBJS})
-	@${COMPILER} ${FLAGS} $(filter-out build/simulatorGPU.o,${OBJS}) ${LIB} -o ${PROGRAM}
-
-${OBJS}: build/%.o: src/%.cpp ${HEADER} | build
-	${COMPILER} ${FLAGS} -c $< -o $@ ${USECUDA}
-
-${CBJS}: build/%.cuda.o: src/%.cu | build
-	${GPUCOMP} ${GPUFLAGS} -dc -c $< -o $@ -D CUDA__="CUDA"
-	
 build:
-	@mkdir build
-
-debug: ${DBGOBJS} ${DBGCBJS}
-	${GPUCOMP} -O0 -g -Xcompiler -fopenmp -lineinfo $(filter-out -O% -fast -static, ${GPUFLAGS}) $(filter-out build/simulatordbg.o,${DBGOBJS}) ${DBGCBJS} ${LIB} -o ${PROGRAM}_debug
-
-${DBGOBJS}: build/%dbg.o: src/%.cpp | build
-	${COMPILER} -O0 -g $(filter-out -O% -fast, ${FLAGS}) -c $< -o $@ ${USECUDA}
-
-${DBGCBJS}: build/%dbg.cuda.o: src/%.cu | build
-	${GPUCOMP} -O0 -g $(filter-out -O% -fast, ${GPUFLAGS}) -lineinfo -dc -c $< -o $@ ${USECUDA}
-
-$(patsubst %.o,%dbg.o,${OBJS}): ${HEADER}
-
-renew: clean ${PROGRAM}
+	@mkdir -p build
+build/cuda:
+	@mkdir -p build/cuda
 
 clean:
-	@rm -f ${PROGRAM}
-	@rm -fr build
-	@rm -f *.o
-
-# ========== NOVA REGRA: Limpeza específica dos arquivos antigos ==========
-clean-old-evolve:
-	@echo "Removendo arquivos antigos de evolve..."
-	@rm -f src/evolve_thermal.cpp src/evolve_step.cpp src/evolve_quench.cpp src/evolve_electric.cpp src/evolve.cpp
-	@rm -f include/evolve.h
-	@echo "Arquivos antigos removidos!"
-
-# ========== VERIFICAÇÃO DE ARQUIVOS ==========
-check-files:
-	@echo "=== Arquivos CPP encontrados ==="
-	@for file in ${CPPS}; do echo "$$file"; done
-	@echo "=== Headers encontrados ==="  
-	@for file in ${HEADER}; do echo "$$file"; done
-	@echo "=== Objetos a serem gerados ==="
-	@for file in ${OBJS}; do echo "$$file"; done
+	@rm -rf build $(PROGRAM) $(PROGRAM)_cpu

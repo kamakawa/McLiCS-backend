@@ -4,6 +4,7 @@
 #include <math.h>
 #include <omp.h>
 #include <iostream>
+#include <strings.h> // strcasecmp
 #include "../include/io.h"
 #include "../include/monte_carlo.h"
 #include "../include/parameter_order.h"
@@ -12,7 +13,23 @@
 #include "../include/geometry_strategy.h"
 #include "../include/anchoring_strategy.h"
 
+#ifdef USE_CUDA
+  #include "../include/cuda/pack_device_params.cuh"
+  #include "../include/cuda/mc_bulk_step.cuh"
+#endif
+
 // ========== Funções Auxiliares ==========
+
+#ifdef USE_CUDA
+#include <cstdint>
+
+static inline std::uint64_t splitmix64(std::uint64_t x) {
+    x += 0x9E3779B97F4A7C15ULL;
+    x = (x ^ (x >> 30)) * 0xBF58476D1CE4E5B9ULL;
+    x = (x ^ (x >> 27)) * 0x94D049BB133111EBULL;
+    return x ^ (x >> 31);
+}
+#endif
 
 void inline setNni(uint pos, int conditional, nni *nLocal, float *ni, int *pt) {
   if (conditional == 1) {
@@ -48,27 +65,88 @@ void EvolveStrategy::monteCarloStep(float& ang_var, gsl_rng** r, float* ni, int*
                                    Parameters* params, GeometryStrategy* geometry_strategy,
                                    float* surface_normals,
                                    std::vector<AnchoringStrategy*>& anchoring_strategies) {
-    // ============================================================
-    // MELHORIA: evitar static baseado em params (pode "congelar" valores)
-    // ============================================================
     const int Nt = params->Nx * params->Ny * params->Nz;
 
-    // ============================================================
-    // MELHORIA: calcula valid_points por chamada (robusto se rodar múltiplas sims)
-    // ============================================================
     int valid_points = 0;
     for (int i = 0; i < Nt; i++) {
         if (pt[i]) valid_points++;
     }
     if (valid_points == 0) return;
 
+// ============================================================
+// CUDA PATH: apenas BULK + neighbourKind==1 + LL (primeira etapa)
+// ============================================================
+#ifdef USE_CUDA
+    static std::uint64_t call_counter = 0;
+
+    ParamsDevice hp = packParamsDevice(*params);
+
+    const std::uint64_t seed =
+        (std::uint64_t)(params->T * 1000000.0f) ^
+        (std::uint64_t)(params->Nx * 73856093u) ^
+        (std::uint64_t)(params->Ny * 19349663u) ^
+        (std::uint64_t)(params->Nz * 83492791u) ^
+        ((++call_counter) * 0x9E3779B97F4A7C15ULL);
+
+    int acceptance_gpu = 0;
+    mc_bulk_step_inplace(ni, pt, hp, ang_var, seed, acceptance_gpu);
+    
+    // CUDA path robusto: Bulk Geometry, neighbourKind 1/2/3, potenciais via dispatch (LL/GHRL/PEAR)
+    const bool is_bulk = (geometry_strategy && geometry_strategy->getName() == std::string("Bulk Geometry"));
+
+    // (Bulk não precisa surface_normals nem anchoring no potencial bulk)
+    if (is_bulk) {
+
+        // Empacota params CPU -> ParamsDevice (usa seu pack_device_params.cu/.cuh)
+        ParamsDevice hp = packParamsDevice(*params);
+
+        // ------------------------------------------------------------
+        // CRÍTICO: seed NÃO pode ser constante a cada monteCarloStep().
+        // No CPU o gsl_rng evolui a cada passo.
+        // Aqui usamos um contador monotônico por processo (simulação).
+        // E aplicamos splitmix64 para quebrar padrões.
+        // ------------------------------------------------------------
+        static std::uint64_t call_counter = 0;
+        const std::uint64_t ctr = call_counter++;
+
+        // base mistura T + dimensões + contador
+        std::uint64_t base =
+            (std::uint64_t)(params->T * 1000000.0f) ^
+            (std::uint64_t)(params->Nx * 73856093u) ^
+            (std::uint64_t)(params->Ny * 19349663u) ^
+            (std::uint64_t)(params->Nz * 83492791u) ^
+            (ctr * 0x9E3779B97F4A7C15ULL);
+
+        // embaralha de verdade
+        const std::uint64_t seed = splitmix64(base);
+
+        int acceptance_gpu = 0;
+
+        // Chamada robusta (mesma “arquitetura” do CPU: bulk_energy_dispatch + potential_device.cuh)
+        mc_bulk_step_inplace(ni, pt, hp, ang_var, seed, acceptance_gpu);
+
+        // Ajuste dinâmico do passo angular (igual CPU)
+        float acceptance_rate = 1.0f * acceptance_gpu / valid_points;
+        if (acceptance_rate < 0.5f) {
+            ang_var *= 0.99f;
+            if (ang_var < 0.01f) ang_var = 0.01f;
+        } else if (acceptance_rate > 0.5f) {
+            ang_var /= 0.99f;
+            if (ang_var > 1.0f) ang_var = 0.5f;
+        }
+        return;
+    }
+#endif
+
+    // ============================================================
+    // CPU PATH (OpenMP) - mantém exatamente sua lógica
+    // ============================================================
     int acceptance = 0;
     const int num_threads = omp_get_max_threads();
     const int Nx = params->Nx;
     const int Ny = params->Ny;
     const int Nz = params->Nz;
 
-    // Configuração do sistema de caixas para paralelização
     int iBoxSize = 2;
     int jBoxSize = 2;
     int kBoxSize = 2;
@@ -108,7 +186,6 @@ void EvolveStrategy::monteCarloStep(float& ang_var, gsl_rng** r, float* ni, int*
 
                 if (pti(i, j, k) == 0) continue;
 
-                // Calcula índices dos vizinhos
                 int im = (i - 1), ip = (i + 1);
                 int jm = (j - 1), jp = (j + 1);
                 int km = (k - 1), kp = (k + 1);
@@ -119,7 +196,6 @@ void EvolveStrategy::monteCarloStep(float& ang_var, gsl_rng** r, float* ni, int*
                     params->ZBound(kp, Nz), params->ZBound(km, Nz)
                 };
 
-                // Vizinhos de primeira ordem
                 setNni(i  + Nx * (j  + Ny * k ), 1,            &nLocal[0], ni, pt);
                 setNni(ip + Nx * (j  + Ny * k ), neighbour[0], &nLocal[1], ni, pt);
                 setNni(im + Nx * (j  + Ny * k ), neighbour[1], &nLocal[2], ni, pt);
@@ -128,7 +204,6 @@ void EvolveStrategy::monteCarloStep(float& ang_var, gsl_rng** r, float* ni, int*
                 setNni(i  + Nx * (j  + Ny * kp), neighbour[4], &nLocal[5], ni, pt);
                 setNni(i  + Nx * (j  + Ny * km), neighbour[5], &nLocal[6], ni, pt);
 
-                // Configura normal da superfície se necessário
                 if (nLocal[0].pt > 1) {
                     int idx = i + Nx * (j + Ny * k);
                     nLocal[7].x = surface_normals[idx * 3 + 0];
@@ -137,7 +212,6 @@ void EvolveStrategy::monteCarloStep(float& ang_var, gsl_rng** r, float* ni, int*
                     nLocal[7].pt = 1;
                 }
 
-                // Vizinhos de segunda ordem
                 if (params->neighbourKind > 1) {
                     setNni(ip + Nx * (jp + Ny * k ), neighbour[0] * neighbour[2], &nLocal[8], ni, pt);
                     setNni(ip + Nx * (jm + Ny * k ), neighbour[0] * neighbour[3], &nLocal[9], ni, pt);
@@ -153,7 +227,6 @@ void EvolveStrategy::monteCarloStep(float& ang_var, gsl_rng** r, float* ni, int*
                     setNni(i  + Nx * (jm + Ny * km), neighbour[3] * neighbour[5], &nLocal[19], ni, pt);
                 }
 
-                // Vizinhos de terceira ordem
                 if (params->neighbourKind == 3) {
                     setNni(ip + Nx * (jp + Ny * kp), neighbour[0] * neighbour[2] * neighbour[4], &nLocal[20], ni, pt);
                     setNni(ip + Nx * (jp + Ny * km), neighbour[0] * neighbour[2] * neighbour[5], &nLocal[21], ni, pt);
@@ -165,11 +238,9 @@ void EvolveStrategy::monteCarloStep(float& ang_var, gsl_rng** r, float* ni, int*
                     setNni(im + Nx * (jm + Ny * km), neighbour[1] * neighbour[3] * neighbour[5], &nLocal[27], ni, pt);
                 }
 
-                // Gera variação angular aleatória
                 va = (2 * gsl_rng_uniform(r[thread]) - 1) * ang_var;
                 rotation_type = gsl_rng_uniform(r[thread]);
 
-                // Aplica rotação em um dos eixos
                 if (rotation_type < 0.333) {
                     nNew[0] = nix(i, j, k);
                     nNew[1] = niy(i, j, k) * cosf(M_PI * va) + niz(i, j, k) * sinf(M_PI * va);
@@ -184,13 +255,11 @@ void EvolveStrategy::monteCarloStep(float& ang_var, gsl_rng** r, float* ni, int*
                     nNew[2] = niz(i, j, k);
                 }
 
-                // Normaliza o vetor
                 float norm = sqrtf(nNew[0]*nNew[0] + nNew[1]*nNew[1] + nNew[2]*nNew[2]);
                 nNew[0] /= norm;
                 nNew[1] /= norm;
                 nNew[2] /= norm;
 
-                // Calculo de Energia (Metropolis)
                 E_old = geometry_strategy->calculatePotential(nLocal, params, anchoring_strategies, surface_normals);
 
                 nLocal[0].x = nNew[0];
@@ -199,7 +268,6 @@ void EvolveStrategy::monteCarloStep(float& ang_var, gsl_rng** r, float* ni, int*
 
                 E_new = geometry_strategy->calculatePotential(nLocal, params, anchoring_strategies, surface_normals);
 
-                // Critério de aceitação de Metropolis
                 if (E_new - E_old < 0 || gsl_rng_uniform(r[thread]) < exp(-(E_new - E_old) / params->T)) {
                     nix(i, j, k) = nNew[0];
                     niy(i, j, k) = nNew[1];
@@ -210,7 +278,6 @@ void EvolveStrategy::monteCarloStep(float& ang_var, gsl_rng** r, float* ni, int*
         }
     }
 
-    // Ajuste dinâmico do passo angular
     float acceptance_rate = 1.0f * acceptance / valid_points;
     if (acceptance_rate < 0.5f) {
         ang_var *= 0.99f;
@@ -241,7 +308,6 @@ float EvolveStrategy::energyCalculator(float* ni, int* pt, Parameters* params,
         int j = (idx / Nx) % Ny;
         int k = idx / (Nx * Ny);
 
-        // Calcula índices dos vizinhos
         int im = (i - 1), ip = (i + 1);
         int jm = (j - 1), jp = (j + 1);
         int km = (k - 1), kp = (k + 1);
@@ -252,7 +318,6 @@ float EvolveStrategy::energyCalculator(float* ni, int* pt, Parameters* params,
             params->ZBound(kp, Nz), params->ZBound(km, Nz)
         };
 
-        // Vizinhos de primeira ordem
         setNni(i  + Nx * (j  + Ny * k ), 1,            &nLocal[0], ni, pt);
         setNni(ip + Nx * (j  + Ny * k ), neighbour[0], &nLocal[1], ni, pt);
         setNni(im + Nx * (j  + Ny * k ), neighbour[1], &nLocal[2], ni, pt);
@@ -261,7 +326,6 @@ float EvolveStrategy::energyCalculator(float* ni, int* pt, Parameters* params,
         setNni(i  + Nx * (j  + Ny * kp), neighbour[4], &nLocal[5], ni, pt);
         setNni(i  + Nx * (j  + Ny * km), neighbour[5], &nLocal[6], ni, pt);
 
-        // Configura normal da superfície se necessário
         if (nLocal[0].pt > 1) {
             int pos = i + Nx * (j + Ny * k);
             nLocal[7].x = surface_normals[pos * 3 + 0];
@@ -270,7 +334,6 @@ float EvolveStrategy::energyCalculator(float* ni, int* pt, Parameters* params,
             nLocal[7].pt = 1;
         }
 
-        // Vizinhos de ordens superiores
         if (params->neighbourKind > 1) {
             setNni(ip + Nx * (jp + Ny * k ), neighbour[0] * neighbour[2], &nLocal[8], ni, pt);
             setNni(ip + Nx * (jm + Ny * k ), neighbour[0] * neighbour[3], &nLocal[9], ni, pt);
@@ -301,9 +364,14 @@ float EvolveStrategy::energyCalculator(float* ni, int* pt, Parameters* params,
         total_energy += energy;
     }
 
-    // CORREÇÃO: Retornar energia TOTAL (igual ao original)
     return total_energy / Nt;
 }
+
+// ========== Implementações das Estratégias Específicas ==========
+// (restante do seu arquivo original continua igual)
+//
+// IMPORTANTE: Eu não alterei as classes ThermalEvolveStrategy / StepEvolveStrategy
+// fora do monteCarloStep, para preservar comportamento.
 
 // ========== Implementações das Estratégias Específicas ==========
 // (Mantidas iguais, pois agora usam os métodos corrigidos)
