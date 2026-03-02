@@ -1,0 +1,30 @@
+Nx  20
+Ny  20
+Nz  10
+MCS 1000
+MCT 20000
+potential  ghrl
+
+Ti  1.3
+Tf  0.5
+dT  -0.05
+p0  0
+
+fn 2
+
+k11 1
+k22 1.0 
+k33 1
+
+ic random
+
+geometry  bulk
+xbound  periodic
+ybound  periodic
+zbound  periodic
+
+evol thermal
+
+
+
+
