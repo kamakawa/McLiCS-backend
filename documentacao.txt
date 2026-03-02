@@ -1,0 +1,402 @@
+────────────────────────────────────────────
+McLiCS – Documentação 
+CPU + CUDA
+────────────────────────────────────────────
+
+VISÃO GERAL
+
+    O projeto marmc (McLiCS versão 0.1) implementa uma simulação de Monte Carlo em uma rede tridimensional de moléculas nemáticas.
+
+    O código possui suporte para:
+
+        Execução em CPU (C++ + OpenMP)
+
+        Execução em GPU (CUDA)
+
+    Diferentes métodos de evolução (thermal, step, quench, electric)
+
+    Diferentes geometrias (bulk, slab, sphere, custom)
+
+    Diferentes potenciais físicos (LL, GHRL, Pear)
+
+    Geração de snapshots do campo diretor em CSV
+
+    Cálculo do parâmetro de ordem
+
+    Relatório final estatístico automático
+
+    O sistema é controlado por um arquivo de parâmetros externo.
+
+────────────────────────────────────────────
+2. ESTRUTURA DO PROJETO
+────────────────────────────────────────────
+
+marmc/
+│
+├── Makefile
+├── param.txt (Arquivo de entrada, pode ser qualquer arquivo txt com os parâmetros de entrada)
+│
+├── include/
+│ ├── simulator.h
+│ ├── evolve.h (CPU)
+│ ├── evolve.cuh (GPU)
+│ ├── geometry.h / .cuh
+│ ├── potential.h / .cuh
+│ ├── parameters.h
+│ ├── io.h
+│ ├── ic.h
+│ ├── parameter_order.h
+│ ├── anchoring.h
+│ ├── reduce.cuh
+│ └── define.h / define.cuh
+│
+└── src/
+├── main.cpp
+├── simulator.cpp
+├── simulatorGPU.cpp
+├── io.cpp
+├── ic.cpp
+├── evolve_.cpp
+├── evolve_.cu
+├── geometry_.cpp
+├── geometry.cu
+├── potential.cpp
+├── potential.cu
+├── reduce.cu
+├── stringGPU.cu
+└── anchoring_.cpp
+
+────────────────────────────────────────────
+3. FLUXO DE EXECUÇÃO DO PROGRAMA
+────────────────────────────────────────────
+
+3.1 main.cpp
+
+O arquivo main.cpp é o ponto de entrada da aplicação.
+
+Fluxo principal:
+
+    1- Exibe a versão do software.
+
+    2- Remove arquivos de simulações anteriores.
+
+    3- Lê o arquivo de parâmetros.
+
+    4- Imprime os parâmetros carregados.
+
+    5- Cria um objeto da classe simulator.
+
+    6- Executa Setup_simmulation().
+
+    7- Salva snapshot inicial.
+
+    8- Executa o método run() da classe evolve.
+
+    9- Lê o arquivo po.dat.
+
+    10- Imprime relatório final com:
+
+        Média da energia
+
+        Máxima e mínima energia
+
+        Média do parâmetro de ordem
+
+        Número de snapshots
+
+    11- Finaliza e libera memória.
+
+────────────────────────────────────────────
+4. DADOS PRINCIPAIS DO SISTEMA
+────────────────────────────────────────────
+
+4.1 Campo Diretor (ni)
+
+    Tipo: float*
+    Tamanho: 3 * Nx * Ny * Nz
+
+    Armazena o vetor diretor (nx, ny, nz) de cada sítio da rede.
+
+    Cada ponto da malha possui três componentes.
+
+4.2 Máscara de Pontos (pt)
+
+    Tipo: int*
+    Tamanho: Nx * Ny * Nz
+
+    Define se um ponto pertence à geometria ativa ou não.
+
+    Usado para:
+
+    Aplicar condições de contorno
+
+    Ignorar regiões fora da geometria
+
+    Controlar superfícies e ancoragens
+
+────────────────────────────────────────────
+5. SIMULAÇÃO EM CPU
+────────────────────────────────────────────
+
+Arquivos principais:
+
+    evolve.cpp
+
+    evolve_thermal.cpp
+
+    evolve_step.cpp
+
+    evolve_quench.cpp
+
+    evolve_electric.cpp
+
+Hierarquia:
+
+Evolve
+└── EvolveN
+├── thermalEvolveN
+├── stepEvolveN
+├── quenchEvolveN
+└── electricEvolveN
+
+Características:
+
+    Implementado em C++
+
+    Usa OpenMP para paralelismo
+
+    Executa Monte Carlo iterativo
+
+    Calcula energia e parâmetro de ordem no host
+
+────────────────────────────────────────────
+6. SIMULAÇÃO EM GPU (CUDA)
+────────────────────────────────────────────
+
+Arquivos principais:
+
+    evolve.cu
+
+    evolve_thermal.cu
+
+    evolve_step.cu
+
+    evolve_quench.cu
+
+    evolve_electric.cu
+
+Hierarquia:
+
+Evolve
+└── EvolveNGPU
+├── thermalEvolveNGPU
+├── stepEvolveNGPU
+├── quenchEvolveNGPU
+└── electricEvolveNGPU
+
+Características:
+
+    Usa cudaMalloc para alocação
+
+    Usa curand para geração de números aleatórios
+
+    Executa kernels para:
+
+    Monte Carlo
+
+    Cálculo de energia
+
+    Reduções paralelas
+
+    Copia resultados para o host via cudaMemcpy
+
+────────────────────────────────────────────
+7. GEOMETRIA
+────────────────────────────────────────────
+
+Arquivos:
+
+    geometry_bulk.cpp
+
+    geometry_slab.cpp
+
+    geometry_sphere.cpp
+
+    geometry_custom.cpp
+
+    geometry.cu
+
+Responsabilidades:
+
+    Definir pontos válidos
+
+    Inicializar superfícies
+
+    Aplicar condições de contorno
+
+    Fornecer ponteiros para potencial
+
+Cada geometria implementa:
+
+    Boundary_Init()
+
+    check_Points()
+
+────────────────────────────────────────────
+8. POTENCIAIS
+────────────────────────────────────────────
+
+Arquivos:
+
+    potential.cpp
+
+    potential.cu
+
+Potenciais implementados:
+
+    LL (Lebwohl-Lasher)
+    GHRL (Grun-Hess)
+    Pear (Splay-Bend)
+
+Responsabilidades:
+
+    Calcular energia local
+
+    Definir parâmetros elásticos
+
+    Contribuir para cálculo total da energia
+
+────────────────────────────────────────────
+9. CÁLCULO DO PARÂMETRO DE ORDEM
+────────────────────────────────────────────
+
+Arquivo:
+
+    parameter_order.cpp
+
+Processo:
+
+    Constrói tensor Q
+
+    Calcula autovalores (via GSL)
+
+    O maior autovalor define S
+
+    O resultado é salvo em po.dat.
+
+────────────────────────────────────────────
+10. MAKEFILE
+────────────────────────────────────────────
+
+O Makefile gera dois executáveis:
+
+    mc_sim → versão GPU
+    mc_sim_cpu → versão CPU
+
+Comandos principais:
+
+    make
+    Compila versão GPU.
+
+    make CPU
+    Compila versão CPU.
+
+    make clean
+    Remove executáveis e pasta build.
+
+    make debug
+    Gera versão com símbolos de debug.
+
+    make clean-data
+    Remove apenas arquivos CSV de saída.
+
+O Makefile:
+
+    Compila arquivos .cpp com g++
+
+    Compila arquivos .cu com nvcc
+
+    Usa -O3 para otimização
+
+    Usa -fopenmp para CPU
+
+    Usa -dc para compilação separada CUDA
+
+    Linka com:
+
+    libm
+
+    gsl
+
+    gslcblas
+
+    libgomp
+
+────────────────────────────────────────────
+11. ARQUIVOS DE SAÍDA
+────────────────────────────────────────────
+
+ic.csv
+Snapshot inicial.
+
+director_field_*.csv
+Snapshots ao longo da simulação.
+
+po.dat
+Dados de energia e parâmetro de ordem.
+
+Relatório final é impresso no terminal.
+
+────────────────────────────────────────────
+12. EXTENSÃO DO PROJETO
+────────────────────────────────────────────
+
+Para adicionar nova geometria:
+
+Criar nova classe derivada
+
+Implementar construção de pt
+
+Registrar no simulator
+
+Para adicionar novo método de evolução:
+
+Criar classe derivada
+
+Implementar run()
+
+Registrar no seletor evol
+
+Para adicionar novo potencial:
+
+Implementar função de energia
+
+Registrar no Setup_simmulation
+
+────────────────────────────────────────────
+13. CONSIDERAÇÕES DE PERFORMANCE
+────────────────────────────────────────────
+
+A GPU apresenta ganho significativo quando:
+
+O tamanho da rede é grande
+
+O número de passos Monte Carlo é alto
+
+A frequência de snapshots é baixa
+
+As transferências host-device são reduzidas
+
+O I/O (escrita de CSV) é um dos maiores gargalos.
+
+────────────────────────────────────────────
+14. OBSERVAÇÕES IMPORTANTES
+────────────────────────────────────────────
+
+Ponteiros de GPU nunca devem ser acessados diretamente no host.
+
+Toda leitura de memória da GPU deve usar cudaMemcpy.
+
+CUDA_LAUNCH_BLOCKING=1 é útil para debug.
+
+A comparação CPU vs GPU deve usar os mesmos parâmetros.
