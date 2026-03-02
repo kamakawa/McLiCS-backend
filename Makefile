@@ -1,65 +1,127 @@
- PROGRAM := mc_sim
-########### Gnu:
- COMPILER := g++ 
- GPUCOMP  := nvcc
- FLAGS    :=  -O3  -fopenmp -static
- GPUFLAGS    :=  -O3
- #-Wno-unused-result -Wno-format
- LIB := -lm  -lgsl -lgslcblas  -lgomp 
-# LIB := -lm  -lgslcblas  -lgsl -lgomp 
-USECUDA:=-D CUDA__="CUDA"
-ifeq (,$(shell which nvcc))
-	.DEFAULT_GOAL=CPU
-	USECUDA:= 
-endif
-############ Intel 2 :
-#COMPILER = icpc
-#FLAGS= -ipo -O3  -no-prec-div -xAVX -simd -qopenmp -fp-model fast=2 -static
-#LIB = -mkl -lgsl 
+# ============================================================
+#                MClist - Monte Carlo Simulator
+# ============================================================
 
+PROGRAM := mc_sim
 
-############ Intel Debug :
+CXX     := g++
+NVCC    := /usr/bin/nvcc
 
-#COMPILER = icpc
-#FLAGS= -O0 -g -static
-#LIB = -mkl -lgsl 
+CXXFLAGS  := -O3 -fopenmp -Iinclude
+NVCCFLAGS := -O3 -lineinfo -Iinclude -DUSE_CUDA
+LIBS      := -lm -lgsl -lgslcblas -lgomp
 
+# ------------------------------------------------------------
+# Source files
+# ------------------------------------------------------------
+CPPS  := $(wildcard src/*.cpp)
+CUSRC := $(wildcard src/cuda/*.cu)
 
+HEADERS := $(shell find include -type f \( -name "*.h" -o -name "*.hpp" -o -name "*.cuh" \))
 
- 
-CPPS := $(wildcard src/*.cpp)
-CUDA := $(wildcard src/*.cu)
-HEADER := $(wildcard include/*.h)
-OBJS  := $(patsubst src/%.cpp,build/%.o,${CPPS})
-CBJS  := $(patsubst src/%.cu,build/%.cuda.o,${CUDA})
-DBGOBJS  := $(patsubst src/%.cpp,build/%dbg.o,${CPPS})
-DBGCBJS  := $(patsubst src/%.cu,build/%dbg.cuda.o,${CUDA})
+# ------------------------------------------------------------
+# Objects
+# ------------------------------------------------------------
 
-all:${PROGRAM}
+# CPU objects (sem USE_CUDA)
+OBJS_CPU := $(patsubst src/%.cpp,build_cpu/%.o,$(CPPS))
 
-${PROGRAM}: ${OBJS} ${CBJS}
-	@${GPUCOMP} ${GPUFLAGS} $(filter-out  build/simulator.o,${OBJS}) ${CBJS} ${LIB} -o ${PROGRAM}
-CPU:  $(filter-out  build/simulatorGPU.o,${OBJS})
-	@${COMPILER} ${FLAGS} $(filter-out  build/simulatorGPU.o,${OBJS}) ${LIB} -o ${PROGRAM}
-${OBJS}: build/%.o: src/%.cpp ${HEADER} | build
-	${COMPILER} ${FLAGS} -c $< -o $@ ${USECUDA}
-${CBJS}: build/%.cuda.o: src/%.cu  | build
-	${GPUCOMP}  ${GPUFLAGS} -dc -c  $< -o $@ -D CUDA__="CUDA"
-	
-build:
-	@mkdir build
-debug:	${DBGOBJS} ${DBGCBJS}
-	${GPUCOMP}  -O0 -g -Xcompiler -fopenmp  -lineinfo $(filter-out -O% -fast -static, ${GPUFLAGS}) $(filter-out  build/simulatordbg.o,${DBGOBJS}) ${DBGCBJS}  ${LIB} -o ${PROGRAM}_debug
-	#@rm build/*dbg.o
-${DBGOBJS}: build/%dbg.o: src/%.cpp  | build
-	${COMPILER}  -O0 -g $(filter-out -O% -fast, ${FLAGS}) -c $< -o $@ ${USECUDA}
-${DBGCBJS}: build/%dbg.cuda.o: src/%.cu | build
-	${GPUCOMP}  -O0 -g $(filter-out -O% -fast, ${GPUFLAGS}) -lineinfo -dc -c $< -o $@ ${USECUDA}
-$(patsubst %.o,%dbg.o,${OBJS}): ${HEADER}
+# GPU objects (com USE_CUDA)
+OBJS_GPU := $(patsubst src/%.cpp,build_gpu/%.o,$(CPPS))
+CUOBJS   := $(patsubst src/cuda/%.cu,build_gpu/cuda/%.cu.o,$(CUSRC))
 
-renew: clean	${PROGRAM}
+# ------------------------------------------------------------
+# Generated simulation files
+# ------------------------------------------------------------
+GENERATED_FILES := director_field_T_*.csv po.dat ic.csv
+
+# ------------------------------------------------------------
+# Default target
+# ------------------------------------------------------------
+.DEFAULT_GOAL := all
+
+all: $(PROGRAM)
+cpu: $(PROGRAM)_cpu
+
+# ------------------------------------------------------------
+# Link
+# ------------------------------------------------------------
+
+$(PROGRAM): $(OBJS_GPU) $(CUOBJS) | build_gpu build_gpu/cuda
+	@echo "🔧 Linking GPU executable..."
+	$(NVCC) -O3 -lineinfo $(CUOBJS) $(OBJS_GPU) $(LIBS) -o $@
+	@echo "✅ GPU build complete: ./$(PROGRAM)"
+
+$(PROGRAM)_cpu: $(OBJS_CPU) | build_cpu
+	@echo "🔧 Linking CPU executable..."
+	$(CXX) $(CXXFLAGS) $(OBJS_CPU) $(LIBS) -o $@
+	@echo "✅ CPU build complete: ./$(PROGRAM)_cpu"
+
+# ------------------------------------------------------------
+# Compile C++ (CPU)
+# ------------------------------------------------------------
+
+build_cpu/%.o: src/%.cpp $(HEADERS) | build_cpu
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# ------------------------------------------------------------
+# Compile C++ (GPU mode)
+# ------------------------------------------------------------
+
+build_gpu/%.o: src/%.cpp $(HEADERS) | build_gpu
+	$(CXX) $(CXXFLAGS) -DUSE_CUDA -c $< -o $@
+
+# ------------------------------------------------------------
+# Compile CUDA
+# ------------------------------------------------------------
+
+build_gpu/cuda/%.cu.o: src/cuda/%.cu $(HEADERS) | build_gpu build_gpu/cuda
+	$(NVCC) $(NVCCFLAGS) -dc -c $< -o $@
+
+# ------------------------------------------------------------
+# Run targets
+# ------------------------------------------------------------
+
+run: $(PROGRAM)
+	@echo "🚀 Running GPU simulation..."
+	./$(PROGRAM) input_parameters.txt
+
+run-cpu: $(PROGRAM)_cpu
+	@echo "🚀 Running CPU simulation..."
+	./$(PROGRAM)_cpu input_parameters.txt
+
+# ------------------------------------------------------------
+# Clean targets
+# ------------------------------------------------------------
 
 clean:
-	@rm -f ${PROGRAM}
-	@rm -fr build
-	@rm -f *.o
+	@echo ""
+	@echo "🔧 Cleaning build files..."
+	@rm -rf build_cpu build_gpu $(PROGRAM) $(PROGRAM)_cpu
+	@echo "✅ Build cleaned."
+	@echo ""
+
+clean-data:
+	@echo ""
+	@echo "🗑 Removing simulation output files..."
+	@rm -f $(GENERATED_FILES)
+	@echo "✅ Simulation data removed."
+	@echo ""
+
+purge: clean clean-data
+	@echo ""
+	@echo "🔥 Full cleanup completed."
+	@echo ""
+
+# ------------------------------------------------------------
+# Create directories
+# ------------------------------------------------------------
+
+build_cpu:
+	@mkdir -p build_cpu
+
+build_gpu:
+	@mkdir -p build_gpu
+
+build_gpu/cuda:
+	@mkdir -p build_gpu/cuda
