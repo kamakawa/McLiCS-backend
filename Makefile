@@ -1,127 +1,77 @@
-# ============================================================
-#                MClist - Monte Carlo Simulator
-# ============================================================
+PROGRAM_GPU := mc_sim
+PROGRAM_CPU := mc_sim_cpu
 
-PROGRAM := mc_sim
+OUT_DIR := dist/linux-x64
 
-CXX     := g++
-NVCC    := /usr/bin/nvcc
+########### Gnu:
+COMPILER := g++
+GPUCOMP  := nvcc
+FLAGS    := -O3 -std=c++17 -fopenmp -static
+GPUFLAGS := -O3 -std=c++17
+LIB      := -lm -lgsl -lgslcblas -lgomp
 
-CXXFLAGS  := -O3 -fopenmp -Iinclude
-NVCCFLAGS := -O3 -lineinfo -Iinclude -DUSE_CUDA
-LIBS      := -lm -lgsl -lgslcblas -lgomp
+USECUDA := -D CUDA__="CUDA"
+ifeq (,$(shell which nvcc))
+    .DEFAULT_GOAL=CPU
+    USECUDA :=
+endif
 
-# ------------------------------------------------------------
-# Source files
-# ------------------------------------------------------------
-CPPS  := $(wildcard src/*.cpp)
-CUSRC := $(wildcard src/cuda/*.cu)
+# simulatorGPU.cpp was merged into simulator.cpp — exclude it from all builds
+ALL_CPPS := $(wildcard src/*.cpp)
+CPPS     := $(filter-out src/simulatorGPU.cpp,${ALL_CPPS})
+CUDA     := $(wildcard src/*.cu)
+HEADER   := $(wildcard include/*.h)
 
-HEADERS := $(shell find include -type f \( -name "*.h" -o -name "*.hpp" -o -name "*.cuh" \))
+OBJS    := $(patsubst src/%.cpp,build/%.o,${CPPS})
+CBJS    := $(patsubst src/%.cu,build/%.cuda.o,${CUDA})
+DBGOBJS := $(patsubst src/%.cpp,build/%dbg.o,${CPPS})
+DBGCBJS := $(patsubst src/%.cu,build/%dbg.cuda.o,${CUDA})
 
-# ------------------------------------------------------------
-# Objects
-# ------------------------------------------------------------
+all: ${PROGRAM_GPU}
 
-# CPU objects (sem USE_CUDA)
-OBJS_CPU := $(patsubst src/%.cpp,build_cpu/%.o,$(CPPS))
+# ---------------- GPU build ----------------
+${PROGRAM_GPU}: ${OBJS} ${CBJS} | ${OUT_DIR}
+	@${GPUCOMP} ${GPUFLAGS} ${OBJS} ${CBJS} ${LIB} -o ${OUT_DIR}/${PROGRAM_GPU}
 
-# GPU objects (com USE_CUDA)
-OBJS_GPU := $(patsubst src/%.cpp,build_gpu/%.o,$(CPPS))
-CUOBJS   := $(patsubst src/cuda/%.cu,build_gpu/cuda/%.cu.o,$(CUSRC))
+# ---------------- CPU build ----------------
+CPU: ${OBJS} | ${OUT_DIR}
+	@${COMPILER} ${FLAGS} ${OBJS} ${LIB} -o ${OUT_DIR}/${PROGRAM_CPU}
 
-# ------------------------------------------------------------
-# Generated simulation files
-# ------------------------------------------------------------
-GENERATED_FILES := director_field_T_*.csv po.dat ic.csv
+# -------------- object rules --------------
+${OBJS}: build/%.o: src/%.cpp ${HEADER} | build
+	${COMPILER} ${FLAGS} -c $< -o $@ ${USECUDA}
 
-# ------------------------------------------------------------
-# Default target
-# ------------------------------------------------------------
-.DEFAULT_GOAL := all
+${CBJS}: build/%.cuda.o: src/%.cu | build
+	${GPUCOMP} ${GPUFLAGS} -dc -c $< -o $@ -D CUDA__="CUDA"
 
-all: $(PROGRAM)
-cpu: $(PROGRAM)_cpu
+build:
+	@mkdir -p build
 
-# ------------------------------------------------------------
-# Link
-# ------------------------------------------------------------
+${OUT_DIR}:
+	@mkdir -p ${OUT_DIR}
 
-$(PROGRAM): $(OBJS_GPU) $(CUOBJS) | build_gpu build_gpu/cuda
-	@echo "🔧 Linking GPU executable..."
-	$(NVCC) -O3 -lineinfo $(CUOBJS) $(OBJS_GPU) $(LIBS) -o $@
-	@echo "✅ GPU build complete: ./$(PROGRAM)"
+# ---------------- debug ----------------
+debug: ${DBGOBJS} ${DBGCBJS} | ${OUT_DIR}
+	${GPUCOMP} -O0 -g -Xcompiler -fopenmp -lineinfo \
+	$(filter-out -O% -fast -static, ${GPUFLAGS}) \
+	${DBGOBJS} ${DBGCBJS} ${LIB} \
+	-o ${OUT_DIR}/${PROGRAM_GPU}_debug
 
-$(PROGRAM)_cpu: $(OBJS_CPU) | build_cpu
-	@echo "🔧 Linking CPU executable..."
-	$(CXX) $(CXXFLAGS) $(OBJS_CPU) $(LIBS) -o $@
-	@echo "✅ CPU build complete: ./$(PROGRAM)_cpu"
+${DBGOBJS}: build/%dbg.o: src/%.cpp | build
+	${COMPILER} -O0 -g $(filter-out -O% -fast, ${FLAGS}) -c $< -o $@ ${USECUDA}
 
-# ------------------------------------------------------------
-# Compile C++ (CPU)
-# ------------------------------------------------------------
+${DBGCBJS}: build/%dbg.cuda.o: src/%.cu | build
+	${GPUCOMP} -O0 -g $(filter-out -O% -fast, ${GPUFLAGS}) -lineinfo -dc -c $< -o $@ ${USECUDA}
 
-build_cpu/%.o: src/%.cpp $(HEADERS) | build_cpu
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+$(patsubst %.o,%dbg.o,${OBJS}): ${HEADER}
 
-# ------------------------------------------------------------
-# Compile C++ (GPU mode)
-# ------------------------------------------------------------
-
-build_gpu/%.o: src/%.cpp $(HEADERS) | build_gpu
-	$(CXX) $(CXXFLAGS) -DUSE_CUDA -c $< -o $@
-
-# ------------------------------------------------------------
-# Compile CUDA
-# ------------------------------------------------------------
-
-build_gpu/cuda/%.cu.o: src/cuda/%.cu $(HEADERS) | build_gpu build_gpu/cuda
-	$(NVCC) $(NVCCFLAGS) -dc -c $< -o $@
-
-# ------------------------------------------------------------
-# Run targets
-# ------------------------------------------------------------
-
-run: $(PROGRAM)
-	@echo "🚀 Running GPU simulation..."
-	./$(PROGRAM) input_parameters.txt
-
-run-cpu: $(PROGRAM)_cpu
-	@echo "🚀 Running CPU simulation..."
-	./$(PROGRAM)_cpu input_parameters.txt
-
-# ------------------------------------------------------------
-# Clean targets
-# ------------------------------------------------------------
+renew: clean all
 
 clean:
-	@echo ""
-	@echo "🔧 Cleaning build files..."
-	@rm -rf build_cpu build_gpu $(PROGRAM) $(PROGRAM)_cpu
-	@echo "✅ Build cleaned."
-	@echo ""
+	@rm -f ${OUT_DIR}/${PROGRAM_GPU} ${OUT_DIR}/${PROGRAM_CPU} ${OUT_DIR}/${PROGRAM_GPU}_debug
+	@rm -fr build
+	@rm -f *.o
 
 clean-data:
-	@echo ""
-	@echo "🗑 Removing simulation output files..."
-	@rm -f $(GENERATED_FILES)
-	@echo "✅ Simulation data removed."
-	@echo ""
-
-purge: clean clean-data
-	@echo ""
-	@echo "🔥 Full cleanup completed."
-	@echo ""
-
-# ------------------------------------------------------------
-# Create directories
-# ------------------------------------------------------------
-
-build_cpu:
-	@mkdir -p build_cpu
-
-build_gpu:
-	@mkdir -p build_gpu
-
-build_gpu/cuda:
-	@mkdir -p build_gpu/cuda
+	@echo "Removing output data files: director_field_*.csv"
+	@rm -f director_field_*.csv

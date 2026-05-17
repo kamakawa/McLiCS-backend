@@ -1,37 +1,26 @@
 Nx  20
 Ny  20
 Nz  10
-MCS 1000
-MCT 20000
+MCS  1000
+MCT  20000
 potential  ghrl
 
-Ti  0.3
-Tf  0.1
+Ti  1.3
+Tf  0.5
 dT  -0.05
 p0  0
 
-fn 2
+fn  2
 
-k11 1
-k22 1.0 
-k33 1
+k11  1
+k22  1.0
+k33  1
 
-ic random
-
-geometry  slab
-xbound  periodic
-ybound  periodic
-zbound  periodic
+ic  random
 
 evol thermal
 
-anchoring_type 0 homeotropic
-W  0 1
-
-anchoring_type 1 homeotropic
-W  1 1
-
-
-
-
-
+geometry  bulk
+xbound  periodic
+ybound  periodic
+zbound  periodic
