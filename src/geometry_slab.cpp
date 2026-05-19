@@ -13,7 +13,7 @@
 #include "../include/potential.h"
 
 Slab_Geometry::Slab_Geometry(int *pt, Parameters *params) : Geometry(params) {
-  printf("Geometry: Slab\n");
+  printf("  Geometry     : Slab\n");
   nSurfaces = 2;
   ns = (float *)calloc(Nx * Ny * Nz * 3, sizeof(float));
   surfaces = std::vector<class Anchoring *>(nSurfaces);
@@ -25,7 +25,7 @@ Slab_Geometry::Slab_Geometry(int *pt, Parameters *params) : Geometry(params) {
   else if (strcasecmp(params->XBoundtype, "periodic") == 0)
     params->XBound = &Periodic_Boundary;
   else {
-    fprintf(stderr, "X boundary condition: %s not implemented \n", params->XBoundtype);
+    fprintf(stderr, "  [ERROR] X boundary '%s' not implemented. Options: free | periodic\n", params->XBoundtype);
     exit(2);
   }
 
@@ -34,12 +34,12 @@ Slab_Geometry::Slab_Geometry(int *pt, Parameters *params) : Geometry(params) {
   else if (strcasecmp(params->YBoundtype, "periodic") == 0)
     params->YBound = &Periodic_Boundary;
   else {
-    fprintf(stderr, "Y boundary condition: %s not implemented \n", params->YBoundtype);
+    fprintf(stderr, "  [ERROR] Y boundary '%s' not implemented. Options: free | periodic\n", params->YBoundtype);
     exit(2);
   }
 
-  printf("xbound  %s\n", params->XBoundtype);
-  printf("ybound  %s\n", params->YBoundtype);
+  printf("  X boundary   : %s\n", params->XBoundtype);
+  printf("  Y boundary   : %s\n", params->YBoundtype);
   printf("\n");
 }
 
@@ -71,11 +71,6 @@ float Slab_Geometry::latice_Potential(const nni fullni[7]) {
   float ni[3] = {fullni[0].x, fullni[0].y, fullni[0].z};
 
   E = Geometry::newman_neighbours(fullni);
-
-  if (params->neighbourKind > 1)
-    E += Geometry::second_nerghbours(fullni);
-  if (params->neighbourKind == 3)
-    E += Geometry::third_nerghbours(fullni);
   float s[3] = {fullni[7].x, fullni[7].y, fullni[7].z};
   if (fullni[0].pt > 1)
     E += surfaces[fullni[0].pt - 2]->surface_potential(ni, s);

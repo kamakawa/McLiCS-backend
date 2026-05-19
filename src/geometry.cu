@@ -175,10 +175,6 @@ __device__ float Bulk_latice_Potential_GPU(const nni fullni[], Parameters *param
   float ni[3]={fullni[0].x,fullni[0].y,fullni[0].z};
   
   E=newman_neighbours_GPU(fullni,params);
-  if (params->neighbourKind>1)
-    E+=second_nerghbours_GPU(fullni,params);
-  if (params->neighbourKind==3)
-    E+=third_nerghbours_GPU(fullni,params);
   if (params->elecA!=0)  {
     E+=Electric_Potential_GPU(ni,params)  ;
   }
@@ -190,10 +186,6 @@ __device__ float Slab_latice_Potential_GPU(const nni fullni[], Parameters *param
   float ni[3]={fullni[0].x,fullni[0].y,fullni[0].z};
   
   E=newman_neighbours_GPU(fullni,params);
-  if (params->neighbourKind>1)
-    E+=second_nerghbours_GPU(fullni,params);
-  if (params->neighbourKind==3)
-    E+=third_nerghbours_GPU(fullni,params);
   
   float s[3]={fullni[7].x,fullni[7].y,fullni[7].z};
   if (fullni[0].pt>1) {
@@ -210,10 +202,6 @@ __device__ float Custom_latice_Potential_GPU(const nni fullni[], Parameters *par
   float ni[3]={fullni[0].x,fullni[0].y,fullni[0].z};
   
   E=newman_neighbours_GPU(fullni,params);
-  if (params->neighbourKind>1)
-    E+=second_nerghbours_GPU(fullni,params);
-  if (params->neighbourKind==3)
-    E+=third_nerghbours_GPU(fullni,params);
   float s[3]={fullni[7].x,fullni[7].y,fullni[7].z};
 
   if (fullni[0].pt>1) 
@@ -230,10 +218,6 @@ __device__ float Sphere_latice_Potential_GPU(const nni fullni[], Parameters *par
   float ni[3]={fullni[0].x,fullni[0].y,fullni[0].z};
   
   E=newman_neighbours_GPU(fullni,params);
-  if (params->neighbourKind>1)
-    E+=second_nerghbours_GPU(fullni,params);
-  if (params->neighbourKind==3)
-    E+=third_nerghbours_GPU(fullni,params);
   float s[3]={fullni[7].x,fullni[7].y,fullni[7].z};
   if (fullni[0].pt>1) 
     E+= d_W[fullni[0].pt-2]*d_Surface_Potential_GPU[fullni[0].pt-2](ni,s,params,s);

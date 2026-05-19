@@ -14,28 +14,24 @@ RP_Anchoring::RP_Anchoring(Parameters *params, int id) {
   this->id = id;
   this->params = params;
   // Asserting anchoring energy is set and getting its value:
-  printf("seting surface %d: %s\n", id, name);
+  printf("  Surface %d    : %s\n", id, name);
   try {
     W = params->W.at(id);
-    std::cout << "W= " << W << ".\n";
+    printf("  %-12s %g\n", "W:", W);
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "W");
   }
   try {
     phi_s = params->phi_s.at(id);
-    std::cout << "phi_s= " << phi_s << ".\n";
+    printf("  %-12s %g\n", "phi_s:", phi_s);
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "phi_s");
   }
   try {
     theta_s = params->theta_s.at(id);
-    std::cout << "theta_s= " << theta_s << ".\n";
+    printf("  %-12s %g\n", "theta_s:", theta_s);
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "theta_s");
-  }
-  if (params->neighbourKind == 2) {
-    W *= 4;
-    std::cout << "W reescaled by 4 to " << W << " to acomodate the extra neighbours.\n";
   }
   printf("\n");
 }
@@ -53,32 +49,24 @@ RP_Anchoring_GHRL::RP_Anchoring_GHRL(Parameters *params, int id) {
   this->id = id;
   this->params = params;
   // Asserting anchoring energy is set and getting its value:
-  printf("seting surface %d: %s\n", id, name);
+  printf("  Surface %d    : %s\n", id, name);
   try {
     W = params->W.at(id);
-    std::cout << "W= " << W << ".\n";
+    printf("  %-12s %g\n", "W:", W);
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "W");
   }
   try {
     phi_s = params->phi_s.at(id);
-    std::cout << "phi_s= " << phi_s << ".\n";
+    printf("  %-12s %g\n", "phi_s:", phi_s);
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "phi_s");
   }
   try {
     theta_s = params->theta_s.at(id);
-    std::cout << "theta_s= " << theta_s << ".\n";
+    printf("  %-12s %g\n", "theta_s:", theta_s);
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "theta_s");
-  }
-  if (params->neighbourKind == 2) {
-    W *= 4;
-    std::cout << "W reescaled by 4 to " << W << " to acomodate the extra neighbours.\n";
-  }
-  if (params->neighbourKind == 3) {
-    W *= 5;
-    std::cout << "W reescaled by 4 to " << W << " to acomodate the extra neighbours.\n";
   }
   printf("\n");
 }

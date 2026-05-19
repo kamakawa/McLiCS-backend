@@ -17,7 +17,11 @@
 #include <ctime>
 using std::string;
 
-electricEvolveNGPU::electricEvolveNGPU(float *ni, int *ppt, Parameters *params) : EvolveNGPU(ni,ppt,params){
+electricEvolveNGPU::electricEvolveNGPU(float *ni, int *ppt, Parameters *params)
+:Nx(params->Nx),Ny(params->Ny),Nz(params->Nz),EvolveNGPU(ni,ppt,params){
+this->ni=ni;
+this->pt=ppt;
+this->params=params;
 printf("Initializing electric loop:\n");
 printf("Ei= %g\n",params->elecEi);
 printf("Ef= %g\n",params->elecEf);
@@ -27,9 +31,12 @@ d_params=EvolveNGPU::d_params;
 }; 
 
 int electricEvolveNGPU::run(){
+  //~ for (int ii=0; ii<geometry->nSurfaces; ii++) surfaces[ii]=geometry->surfaces[ii];
   float Nt=Nx*Ny*Nz;
   float S1, S2;
+  //~ float P1,V1,B1,C1, BCB, CBC;
   float sTemp;
+  //~ float vec_nt[3];
   float vec_n[3] ;
   float mat_n[9] ;
   float ang_var=0.5;
@@ -45,15 +52,16 @@ int electricEvolveNGPU::run(){
   }
   params->T = params->Ti;
     
-  CUDA_CHECK(cudaMalloc((void **) &d_ni, 3*Nt*sizeof(float)));
-  CUDA_CHECK(cudaMalloc((void **) &d_pt, Nt*sizeof(int)));
-  CUDA_CHECK(cudaMalloc((void **) &d_T, sizeof(float)));
-  CUDA_CHECK(cudaMalloc((void **) &d_params, sizeof(Parameters)));
-  CUDA_CHECK(cudaMalloc((void **) &d_acc, Nt *sizeof(unsigned int)));  
+  cudaMalloc((void **)&d_ni, 3*Nt*sizeof(float));
+  cudaMalloc((void **)&d_pt, Nt*sizeof(int));
+  cudaMalloc((void **)&d_T, sizeof(float));
+  cudaMalloc((void **)&d_params, sizeof(Parameters));
+  cudaMalloc((void **)&d_acc, Nt *sizeof(unsigned int));  
   
-  CUDA_CHECK(cudaMemcpy(d_ni, ni, 3*Nt*sizeof(float), cudaMemcpyHostToDevice));
-  CUDA_CHECK(cudaMemcpy(d_pt, pt, Nt*sizeof(int), cudaMemcpyHostToDevice));
-  CUDA_CHECK(cudaMemcpy(d_params, params, sizeof(Parameters), cudaMemcpyHostToDevice));
+  cudaMemcpy(d_ni, ni, 3*Nt*sizeof(float), cudaMemcpyHostToDevice);
+  cudaMemcpy(d_pt, pt, Nt*sizeof(int), cudaMemcpyHostToDevice);
+  cudaMemcpy(d_params, params, sizeof(Parameters), cudaMemcpyHostToDevice);
+//~   cudaMemcpy(d_acc, &acceptance, sizeof(unsigned int), cudaMemcpyHostToDevice);
   // Initialize GPU RNG states (1D launch)
   const unsigned int nStates = tick.x * tick.y * tick.z;
   const int rngThreads = 256;
@@ -72,12 +80,10 @@ int electricEvolveNGPU::run(){
   fprintf(po_file,"T S varS E varE\n"); fflush(po_file);
   printf("Starting electric variation, for nematic molecules, from %g to %g with step os size %g\n", params->elecEi, params->elecEf, params->elecdE);
   printf("MCT=%d MCS=%d\n",params->MCT,params->MCS); fflush(stdout);
-  CUDA_CHECK(cudaMemcpy(d_T, &params->T, sizeof(float), cudaMemcpyHostToDevice));
-
+  cudaMemcpy(d_T, &params->T, sizeof(float), cudaMemcpyHostToDevice);
     
   for (params->elecE=params->elecEi; (int)1e6*sign*(params->elecE-params->elecEf)>=0; params->elecE+=params->elecdE){
-    CUDA_CHECK(cudaMemcpy(d_params, params, sizeof(Parameters), cudaMemcpyHostToDevice));
-
+    cudaMemcpy(d_params, params, sizeof(Parameters), cudaMemcpyHostToDevice);
     for(int step=0; step<params->MCT; step++){
       Monte_Carlo_Step_GPU(ang_var,rng);
     }

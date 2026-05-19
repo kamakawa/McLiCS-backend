@@ -1,18 +1,17 @@
 #ifndef EVOL_H_
 #define EVOL_H_
 #include <iostream>
-#include <cstdio>
 
 #include "../include/define.h"
 #include "../include/geometry.h"
 #include "../include/parameters.h"
 #include "../include/potential.h"
-#include "../include/rng_pool.h"
-
 #ifdef CUDA__
+// #pragma message ( "Cuda Compilation" )
 #include <cuda_runtime.h>
 #include <curand_kernel.h>
 #else
+// #pragma message ( "CPU Compilation" )
 struct dim3 {
   unsigned int x;
   unsigned int y;
@@ -20,106 +19,86 @@ struct dim3 {
 };
 #endif
 
-// ---------------------------------------------------------------------------
-// Measurement — carries the averaged observables from one MCS block.
-// ---------------------------------------------------------------------------
-struct Measurement {
-  float S1  = 0.f;  // <S>
-  float S2  = 0.f;  // <S^2>
-  float E   = 0.f;  // <E>
-  float E2  = 0.f;  // <E^2>
-};
-
-// ---------------------------------------------------------------------------
-// Base class
-// ---------------------------------------------------------------------------
 class Evolve {
  public:
   virtual ~Evolve() = default;
 
-  virtual int   run()             { return 0; }
-  virtual float latice_Potential(){ return 0; }
+  virtual int run() { return 0; };
+  virtual float latice_Potential() { return 0; };
+  unsigned int Nx, Ny, Nz;
+  Geometry *geometry;
+  int VallidPoints;
 
-  unsigned int Nx = 0, Ny = 0, Nz = 0;
-  Geometry*    geometry    = nullptr;
-  int          VallidPoints = 0;
-
-  void check_Points(int* pt, Parameters params);
+  void check_Points(int *pt, Parameters params);
+  virtual void tester() {
+    printf("here\n");
+    fflush(stdout);
+  }
 };
 
-// ---------------------------------------------------------------------------
-// EvolveN — CPU Monte Carlo base with shared helpers
-// ---------------------------------------------------------------------------
 class EvolveN : public Evolve {
  public:
-  EvolveN(float* ni, int* pt, Parameters* params);
-  ~EvolveN() override;
+  ~EvolveN() override = default;
 
-  virtual int run() { return 0; }
-
-  // Core MC primitives
-  void  Monte_Carlo_Step(float& ang_var, gsl_rng** r);
+  EvolveN(float *ni, int *pt, Parameters *params) : ni(ni), pt(pt), params(params), Nx(params->Nx), Ny(params->Ny), Nz(params->Nz){};
+  virtual int run() { return 0; };
+  void Monte_Carlo_Step(float &ang_var, gsl_rng **r);
+  float energy_calculator_GPU();
   float energy_calculator();
-
-  // Template-Method helpers — called by subclass run() implementations
-  // to avoid duplicating the measurement loop.
-  void        equilibrate(int mct, float& ang_var, RngPool& rng);
-  Measurement measure_block(int mcs, float& ang_var, RngPool& rng);
-
-  // Utility: open po.dat and write header if file is empty.
-  static FILE* open_po_file(const char* header);
-  // Utility: save snapshot and append one data row to po.dat.
-  void save_snapshot(const char* fname);
-  void log_measurement(FILE* po, float key, const Measurement& m);
+  void Monte_Carlo_Step_GPU(float &ang_var, gsl_rng *r);
 
  protected:
-  dim3 tick{};
+  dim3 tick;
 #ifdef CUDA__
-  curandState*  d_rngStates = nullptr;
+  curandState *d_rngStates = 0;
 #endif
-  int*          d_pt     = nullptr;
-  float*        d_T      = nullptr;
-  unsigned int* d_acc    = nullptr;
-  Parameters*   d_params = nullptr;
-
-  int    Nx, Ny, Nz;
-  float* ni;
-  int*   pt;
-  Parameters* params;
-
-  // GSL eigen workspace — allocated once, reused every call (thread-safe
-  // because measure_block is called from the main thread only).
-  gsl_eigen_symmv_workspace* eigen_ws_  = nullptr;
-  gsl_vector*                eigen_eval_ = nullptr;
-  gsl_matrix*                eigen_evec_ = nullptr;
-  gsl_matrix*                eigen_m_    = nullptr;
+  int *d_pt = 0;
+  float *d_T;
+  unsigned int *d_acc = 0;
+  Parameters *d_params = 0;
+  int Nx, Ny, Nz;
+  float *ni, *d_ni;
+  int *pt;
+  Parameters *params;
 };
 
-// ---------------------------------------------------------------------------
-// CPU subclasses — only override run()
-// ---------------------------------------------------------------------------
 class thermalEvolveN : public EvolveN {
  public:
-  thermalEvolveN(float* ni, int* pt, Parameters* params);
-  int run() override;
+  thermalEvolveN(float *ni, int *pt, Parameters *params);
+  int run();
+  ~thermalEvolveN() override = default;
+  int Nx, Ny, Nz;
+  float *ni;
+  int *pt;
 };
 
 class stepEvolveN : public EvolveN {
  public:
-  stepEvolveN(float* ni, int* pt, Parameters* params);
-  int run() override;
+  stepEvolveN(float *ni, int *pt, Parameters *params);
+  int run();
+  ~stepEvolveN() override = default;
+  int Nx, Ny, Nz;
+  float *ni;
+  int *pt;
 };
 
 class quenchEvolveN : public EvolveN {
  public:
-  quenchEvolveN(float* ni, int* pt, Parameters* params);
-  int run() override;
+  quenchEvolveN(float *ni, int *pt, Parameters *params);
+  int run();
+  ~quenchEvolveN() override = default;
+  int Nx, Ny, Nz;
+  float *ni;
+  int *pt;
 };
-
 class electricEvolveN : public EvolveN {
  public:
-  electricEvolveN(float* ni, int* pt, Parameters* params);
-  int run() override;
+  electricEvolveN(float *ni, int *pt, Parameters *params);
+  int run();
+  ~electricEvolveN() override = default;
+  int Nx, Ny, Nz;
+  float *ni;
+  int *pt;
 };
 
 #endif

@@ -1,84 +1,132 @@
+# ===========================================================================
+#  McLiCS — Makefile
+#  Targets:
+#    make          → GPU binary (mc_sim),  requires nvcc
+#    make cpu      → CPU binary (mc_sim_cpu)
+#    make all      → both binaries (if nvcc is available)
+#    make debug    → GPU binary with debug symbols
+#    make debug_cpu→ CPU binary with debug symbols
+#    make clean    → remove build artefacts and binaries
+# ===========================================================================
+
 PROGRAM_GPU := mc_sim
 PROGRAM_CPU := mc_sim_cpu
 
-########### Gnu:
 COMPILER := g++
 GPUCOMP  := nvcc
+
+# Detect architecture from the GPU at build time (falls back to sm_60)
+GPU_ARCH := $(shell nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null \
+            | head -1 | tr -d '.' | sed 's/^/sm_/' || echo sm_60)
+
 FLAGS    := -O3 -std=c++17 -fopenmp
-GPUFLAGS := -O3 -std=c++17 -arch=sm_60  # Ajuste para sua GPU
+GPUFLAGS := -O3 -std=c++17 -arch=$(GPU_ARCH)
+
 LIB      := -lm -lgsl -lgslcblas -lgomp
 
-# Detecta se nvcc está disponível
+# Detect whether nvcc is available
 HAS_CUDA := $(shell which nvcc > /dev/null 2>&1 && echo yes)
 
-# Exclui simulatorGPU.cpp e simulator.cpp (usamos apenas um)
+# ---------------------------------------------------------------------------
+# Source lists
+# simulator.cpp is the single unified simulator (replaces simulatorGPU.cpp)
+# ---------------------------------------------------------------------------
 ALL_CPPS := $(wildcard src/*.cpp)
 
-# Para CPU: use apenas simulator.cpp (versão híbrida), exclua simulatorGPU.cpp
-CPPS_FOR_CPU := $(filter-out src/simulatorGPU.cpp,${ALL_CPPS})
+CUDA_SRC := $(wildcard src/*.cu)
+CUDA_OBJ := $(patsubst src/%.cu,  build/%.cuda.o, $(CUDA_SRC))
 
-# Para GPU: use apenas simulatorGPU.cpp, exclua simulator.cpp
-CPPS_FOR_GPU := $(filter-out src/simulator.cpp,${ALL_CPPS})
+CPU_OBJ  := $(patsubst src/%.cpp, build/cpu_%.o,  $(ALL_CPPS))
+GPU_OBJ  := $(patsubst src/%.cpp, build/gpu_%.o,  $(ALL_CPPS))
 
-HEADER   := $(wildcard include/*.h)
+HEADERS  := $(wildcard include/*.h) $(wildcard include/*.cuh)
 
-# Objetos para CPU
-OBJS_CPU := $(patsubst src/%.cpp,build/cpu_%.o,${CPPS_FOR_CPU})
-
-# Objetos para GPU
-OBJS_GPU := $(patsubst src/%.cpp,build/gpu_%.o,${CPPS_FOR_GPU})
-
-# Arquivos CUDA
-CUDA     := $(wildcard src/*.cu)
-CBJS     := $(patsubst src/%.cu,build/%.cuda.o,${CUDA})
-
-all: ${PROGRAM_GPU}
-
-# -------------------- GPU build (usa simulatorGPU.cpp) --------------------
+# ---------------------------------------------------------------------------
+# Default target
+# ---------------------------------------------------------------------------
 ifeq ($(HAS_CUDA),yes)
-    ${PROGRAM_GPU}: ${OBJS_GPU} ${CBJS} | build
-	@echo "========== Building GPU version =========="
-	@${GPUCOMP} ${GPUFLAGS} ${OBJS_GPU} ${CBJS} ${LIB} -o ${PROGRAM_GPU}
-	@echo "GPU executable: ./${PROGRAM_GPU}"
-	
-    build/gpu_%.o: src/%.cpp ${HEADER} | build
-	@echo "Compiling $< for GPU build..."
-	${COMPILER} ${FLAGS} -c $< -o $@ -D CUDA__="CUDA"
-	
-    build/%.cuda.o: src/%.cu | build
-	@echo "Compiling CUDA $<..."
-	${GPUCOMP} ${GPUFLAGS} -dc -c $< -o $@ -D CUDA__="CUDA"
+.DEFAULT_GOAL := gpu
 else
-    ${PROGRAM_GPU}:
-	@echo "CUDA not available. Cannot build GPU version."
+.DEFAULT_GOAL := cpu
+endif
+
+# ---------------------------------------------------------------------------
+# GPU build
+# ---------------------------------------------------------------------------
+ifeq ($(HAS_CUDA),yes)
+
+gpu: build $(PROGRAM_GPU)
+
+$(PROGRAM_GPU): $(GPU_OBJ) $(CUDA_OBJ)
+	@echo "=== Linking GPU binary ($(GPU_ARCH)) ==="
+	$(GPUCOMP) $(GPUFLAGS) $^ $(LIB) -o $@
+	@echo "GPU binary ready: ./$(PROGRAM_GPU)"
+
+build/gpu_%.o: src/%.cpp $(HEADERS) | build
+	@echo "  [GPU-cpp] $<"
+	$(COMPILER) $(FLAGS) -DCUDA__="CUDA" -c $< -o $@
+
+build/%.cuda.o: src/%.cu $(HEADERS) | build
+	@echo "  [CUDA]    $<"
+	$(GPUCOMP) $(GPUFLAGS) -DCUDA__="CUDA" -dc -c $< -o $@
+
+else
+
+gpu:
+	@echo "Error: nvcc not found. Cannot build GPU target."
+	@exit 1
+
+endif
+
+# ---------------------------------------------------------------------------
+# CPU build
+# ---------------------------------------------------------------------------
+cpu: build $(PROGRAM_CPU)
+
+$(PROGRAM_CPU): $(CPU_OBJ)
+	@echo "=== Linking CPU binary ==="
+	$(COMPILER) $(FLAGS) $^ $(LIB) -o $@
+	@echo "CPU binary ready: ./$(PROGRAM_CPU)"
+
+build/cpu_%.o: src/%.cpp $(HEADERS) | build
+	@echo "  [CPU-cpp] $<"
+	$(COMPILER) $(FLAGS) -march=native -c $< -o $@
+
+# ---------------------------------------------------------------------------
+# Debug targets
+# ---------------------------------------------------------------------------
+debug: build
+ifeq ($(HAS_CUDA),yes)
+	@echo "=== Debug GPU build ==="
+	$(GPUCOMP) -O0 -g -G -Xcompiler -fopenmp -lineinfo \
+	    -DCUDA__="CUDA" $(GPU_OBJ) $(CUDA_OBJ) $(LIB) -o $(PROGRAM_GPU)_debug
+else
+	@echo "Error: nvcc not found."
 	@exit 1
 endif
 
-# -------------------- CPU build (usa simulator.cpp com CPU paths) --------------------
-CPU: ${OBJS_CPU} | build
-	@echo "========== Building CPU version =========="
-	@${COMPILER} ${FLAGS} ${OBJS_CPU} ${LIB} -o ${PROGRAM_CPU}
-	@echo "CPU executable: ./${PROGRAM_CPU}"
+debug_cpu: $(CPU_OBJ) | build
+	@echo "=== Debug CPU build ==="
+	$(COMPILER) -O0 -g $(FLAGS) $(ALL_CPPS) $(LIB) -o $(PROGRAM_CPU)_debug
 
-build/cpu_%.o: src/%.cpp ${HEADER} | build
-	@echo "Compiling $< for CPU build..."
-	${COMPILER} ${FLAGS} -c $< -o $@
-
+# ---------------------------------------------------------------------------
+# Utility
+# ---------------------------------------------------------------------------
 build:
 	@mkdir -p build
 
-# -------------------- Debug --------------------
-debug: ${OBJS_GPU} ${CBJS} | build
-	@echo "========== Building DEBUG version =========="
-	${GPUCOMP} -O0 -g -G -Xcompiler -fopenmp -lineinfo \
-	${GPUFLAGS} ${OBJS_GPU} ${CBJS} ${LIB} -o ${PROGRAM_GPU}_debug
+all: cpu
+ifeq ($(HAS_CUDA),yes)
+all: gpu
+endif
 
-# -------------------- Clean --------------------
 clean:
-	@rm -f ${PROGRAM_GPU} ${PROGRAM_CPU} ${PROGRAM_GPU}_debug
-	@rm -fr build
-	@rm -f *.o
+	@rm -f $(PROGRAM_GPU) $(PROGRAM_CPU) $(PROGRAM_GPU)_debug $(PROGRAM_CPU)_debug
+	@rm -rf build
+	@echo "Clean done."
 
-renew: clean CPU
-
-.PHONY: all CPU debug clean renew
+clean-data:
+	@find . -type f -name "director_field_*.csv" -delete
+	@echo "All director_field_*.csv files removed."
+	
+.PHONY: gpu cpu all debug debug_cpu clean clean-data

@@ -14,20 +14,12 @@ Homeotropic_Anchoring::Homeotropic_Anchoring(Parameters *params, int id) {
   this->id = id;
   this->params = params;
   // Asserting anchoring energy is set and getting its value:
-  printf("seting surface %d: %s\n", id, name);
+  printf("  Surface %d    : %s\n", id, name);
   try {
     W = params->W.at(id);
-    std::cout << "W= " << W << ".\n";
+    printf("  %-12s %g\n", "W:", W);
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "W");
-  }
-  if (params->neighbourKind == 2) {
-    W *= 4;
-    std::cout << "W reescaled by 4 to " << W << " to acomodate the extra neighbours.\n";
-  }
-  if (params->neighbourKind == 3) {
-    W *= 5;
-    std::cout << "W reescaled by 4 to " << W << " to acomodate the extra neighbours.\n";
   }
   printf("\n");
 }
@@ -43,16 +35,12 @@ Homeotropic_Anchoring_GHRL::Homeotropic_Anchoring_GHRL(Parameters *params, int i
   this->id = id;
   this->params = params;
   // Asserting anchoring energy is set and getting its value:
-  printf("seting surface %d: %s\n", id, name);
+  printf("  Surface %d    : %s\n", id, name);
   try {
     W = params->W.at(id);
-    std::cout << "W= " << W << ".\n";
+    printf("  %-12s %g\n", "W:", W);
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "W");
-  }
-  if (params->neighbourKind == 2) {
-    W *= 4;
-    std::cout << "W reescaled by 4 to " << W << " to acomodate the extra neighbours.\n";
   }
   printf("\n");
 }

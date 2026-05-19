@@ -4,10 +4,7 @@
 #include <string.h>
 
 #include <fstream>
-#include <functional>
 #include <iostream>
-#include <map>
-#include <string>
 
 #include "../include/define.h"
 #include "../include/evolve.h"
@@ -15,17 +12,35 @@
 #include "../include/parameters.h"
 #include "../include/potential.h"
 
-int print_n(const char* fname, float* ni, Parameters params, int* pt) {
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+static void print_separator(const char *seg = "─", int count = 60) {
+  for (int i = 0; i < count; i++) fputs(seg, stdout);
+  putchar('\n');
+}
+
+static void print_header(const char *title, int count = 60) {
+  print_separator("─", count);
+  int titleLen = (int)strlen(title);
+  int pad = (count - titleLen - 2) / 2;
+  printf("%*s %s %*s\n", pad, "", title, pad, "");
+  print_separator("─", count);
+}
+
+// ─── print_n ────────────────────────────────────────────────────────────────
+
+int print_n(const char *fname, float *ni, Parameters params, int *pt) {
   int Nx = params.Nx;
   int Ny = params.Ny;
   int Nz = params.Nz;
   float S;
-  FILE* output = fopen(fname, "w");
-  if (!output) {
+  FILE *output = fopen(fname, "w");
+  if (output == 0) {
     perror(fname);
     return 1;
   }
   fprintf(output, "x,y,z,nx,ny,nz,S,pt\n");
+
   for (int k = 0; k < params.Nz; k++) {
     for (int j = 0; j < params.Ny; j++) {
       for (int i = 0; i < params.Nx; i++) {
@@ -35,198 +50,261 @@ int print_n(const char* fname, float* ni, Parameters params, int* pt) {
       }
     }
   }
-  printf("Snapshot saved in %s\n", fname);
+  printf("  Snapshot → %s\n", fname);
   fflush(stdout);
   fclose(output);
   return 0;
 }
 
-// ---------------------------------------------------------------------------
-// Input file parser — dispatch table replaces the original chain of ~60
-// else-if blocks. Behaviour is identical: each key maps to a lambda that
-// reads the next token(s) from the stream into the corresponding field.
-// ---------------------------------------------------------------------------
+// ─── read_input_file ────────────────────────────────────────────────────────
 
-using Setter = std::function<void(std::ifstream&, Parameters&)>;
-
-// Helper: read a numeric/POD scalar into a field
-template<typename T>
-static Setter scalar(T Parameters::*field) {
-  return [field](std::ifstream& f, Parameters& p) { f >> p.*field; };
-}
-
-// Helper: read a word into a char[N] field.
-// scalar<T> cannot handle char[] because pointer-to-member of array type
-// is not dereferenceable via operator>>.
-template<size_t N>
-static Setter cstr(char (Parameters::*field)[N]) {
-  return [field](std::ifstream& f, Parameters& p) {
-    std::string tmp; f >> tmp;
-    strncpy(p.*field, tmp.c_str(), N - 1);
-    (p.*field)[N - 1] = '\0';
-  };
-}
-
-// Helper: read "index value" into a std::map<int,T> field
-template<typename T>
-static Setter mapEntry(std::map<int,T> Parameters::*field) {
-  return [field](std::ifstream& f, Parameters& p) {
-    int idx; f >> idx >> (p.*field)[idx];
-  };
-}
-
-// Build the dispatch table once.
-// Keys are matched case-insensitively via strcasecmp.
-static const std::vector<std::pair<std::vector<std::string>, Setter>> kHandlers = {
-  { {"nx"},                                           scalar(&Parameters::Nx)   },
-  { {"ny"},                                           scalar(&Parameters::Ny)   },
-  { {"nz"},                                           scalar(&Parameters::Nz)   },
-  { {"a"},                                            scalar(&Parameters::A)    },
-  { {"b1"},                                           scalar(&Parameters::B1)   },
-  { {"b2"},                                           scalar(&Parameters::B2)   },
-  { {"c"},                                            scalar(&Parameters::C)    },
-  { {"ti"},                                           scalar(&Parameters::Ti)   },
-  { {"tf"},                                           scalar(&Parameters::Tf)   },
-  { {"dt"},                                           scalar(&Parameters::dT)   },
-  { {"mcs"},                                          scalar(&Parameters::MCS)  },
-  { {"mct"},                                          scalar(&Parameters::MCT)  },
-  { {"fn"},                                           scalar(&Parameters::fn)   },
-  { {"first_file_number","initial_output"},           scalar(&Parameters::first_file) },
-  { {"ic"},                                           cstr(&Parameters::ic)     },
-  { {"ic_file"},                                      cstr(&Parameters::ic_file) },
-  { {"xbound"},                                       cstr(&Parameters::XBoundtype) },
-  { {"ybound"},                                       cstr(&Parameters::YBoundtype) },
-  { {"zbound"},                                       cstr(&Parameters::ZBoundtype) },
-  { {"potential"},                                    cstr(&Parameters::potential)  },
-  { {"evol","mode"},                                  cstr(&Parameters::evol)   },
-  { {"geometry"},                                     cstr(&Parameters::geometry) },
-  { {"boundary_file"},                                cstr(&Parameters::bound_file_name) },
-  { {"k11"},                                          scalar(&Parameters::k11)  },
-  { {"k22"},                                          scalar(&Parameters::k22)  },
-  { {"k33"},                                          scalar(&Parameters::k33)  },
-  { {"p0"},                                           scalar(&Parameters::p0)   },
-  { {"phi_0"},                                        scalar(&Parameters::phi_0) },
-  { {"theta_0"},                                      scalar(&Parameters::theta_0) },
-  { {"p0_i"},                                         scalar(&Parameters::p0_i) },
-  { {"nk","neighbour_kind","neighbour"},              scalar(&Parameters::neighbourKind) },
-  { {"rhoscale","rho_scale"},                         scalar(&Parameters::rhoScale)      },
-  { {"lambdascale","lambda_scale"},                   scalar(&Parameters::lambdaScale)   },
-  { {"muscale","mu_scale"},                           scalar(&Parameters::muScale)       },
-  { {"nuscale","nu_scale"},                           scalar(&Parameters::nuScale)       },
-  { {"sigmascale","sigma_scale"},                     scalar(&Parameters::sigmaScale)    },
-  { {"elecx","electric_field_x","ef_x"},              scalar(&Parameters::elecX)  },
-  { {"elecy","electric_field_y","ef_y"},              scalar(&Parameters::elecY)  },
-  { {"elecz","electric_field_z","ef_z"},              scalar(&Parameters::elecZ)  },
-  { {"eleca","dielectric_anisotropy","aniso_e"},      scalar(&Parameters::elecA)  },
-  { {"ei","initial_e"},                               scalar(&Parameters::elecEi) },
-  { {"ef","final_e"},                                 scalar(&Parameters::elecEf) },
-  { {"de","e_variation"},                             scalar(&Parameters::elecdE) },
-  { {"anchoring_type"},                               mapEntry(&Parameters::anchoring_type) },
-  { {"w"},                                            mapEntry(&Parameters::W)   },
-  { {"phi_s"},                                        mapEntry(&Parameters::phi_s) },
-  { {"theta_s"},                                      mapEntry(&Parameters::theta_s) },
-};
-
-Parameters read_input_file(const char* fname) {
-  Parameters p;
-  if (!fname) {
-    printf("No file specified — using default parameter values\n");
-    return p;
-  }
-
-  std::ifstream f(fname);
-  if (!f) { perror(fname); exit(5); }
-  std::cout << "Using \"" << fname << "\" as input file\n\n";
-
-  char garbage[400];
-  char token[200];
-
-  while (f >> token) {
-    // Comment lines
-    if (token[0] == '#') { f.getline(garbage, sizeof(garbage)); continue; }
-
-    // Look up the token (case-insensitive)
-    bool found = false;
-    for (auto& [keys, setter] : kHandlers) {
-      for (auto& key : keys) {
-        if (strcasecmp(token, key.c_str()) == 0) {
-          setter(f, p);
-          f.getline(garbage, sizeof(garbage));
-          found = true;
-          break;
-        }
-      }
-      if (found) break;
+Parameters read_input_file(const char *fname) {
+  Parameters input_params;
+  std::ifstream input_file;
+  int nn;
+  if (fname == NULL) {
+    printf("  [!] No file specified — using default parameter values.\n");
+    return input_params;
+  } else {
+    input_file.open(fname);
+    if (!input_file) {
+      perror(fname);
+      exit(5);
     }
+    printf("  Parameter file: %s\n\n", fname);
+  }
+  char parser[200];
+  char *garbage = (char *)malloc(400);
 
-    if (!found) {
-      fprintf(stderr, "Invalid parameter: %s\n", token);
+  while (input_file >> parser) {
+    if (strcasecmp(parser, "nx") == 0) {
+      input_file >> input_params.Nx;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "ny") == 0) {
+      input_file >> input_params.Ny;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "nz") == 0) {
+      input_file >> input_params.Nz;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "A") == 0) {
+      input_file >> input_params.A;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "B1") == 0) {
+      input_file >> input_params.B1;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "B2") == 0) {
+      input_file >> input_params.B2;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "C") == 0) {
+      input_file >> input_params.C;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "Ti") == 0) {
+      input_file >> input_params.Ti;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "Tf") == 0) {
+      input_file >> input_params.Tf;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "dT") == 0) {
+      input_file >> input_params.dT;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "MCS") == 0) {
+      input_file >> input_params.MCS;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "MCT") == 0) {
+      input_file >> input_params.MCT;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "ic") == 0) {
+      input_file >> input_params.ic;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "ic_file") == 0) {
+      input_file >> input_params.ic_file;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "xbound") == 0) {
+      input_file >> input_params.XBoundtype;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "ybound") == 0) {
+      input_file >> input_params.YBoundtype;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "zbound") == 0) {
+      input_file >> input_params.ZBoundtype;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "potential") == 0) {
+      input_file >> input_params.potential;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "evol")*strcasecmp(parser, "mode") == 0) {
+      input_file >> input_params.evol;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "device") == 0) {
+      char dev[20];
+      input_file >> dev;
+      input_file.getline(garbage, 400);
+      if (strcasecmp(dev, "gpu") == 0 || strcasecmp(dev, "cuda") == 0)
+        input_params.use_gpu = true;
+      else if (strcasecmp(dev, "cpu") == 0)
+        input_params.use_gpu = false;
+      else {
+        fprintf(stderr, "  [!] Unknown device '%s' — defaulting to CPU.\n", dev);
+        input_params.use_gpu = false;
+      }
+    } else if (strcasecmp(parser, "k11") == 0) {
+      input_file >> input_params.k11;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "k22") == 0) {
+      input_file >> input_params.k22;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "k33") == 0) {
+      input_file >> input_params.k33;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "p0") == 0) {
+      input_file >> input_params.p0;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "phi_0") == 0) {
+      input_file >> input_params.phi_0;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "theta_0") == 0) {
+      input_file >> input_params.theta_0;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "p0_i") == 0) {
+      input_file >> input_params.p0_i;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "fn") == 0) {
+      input_file >> input_params.fn;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "first_file_number") * strcasecmp(parser, "initial_output") == 0) {
+      input_file >> input_params.first_file;
+      input_file.getline(garbage, 400);
+    } else if (parser[0] == '#') {
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "geometry") == 0) {
+      input_file >> input_params.geometry;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "boundary_file") == 0) {
+      input_file >> input_params.bound_file_name;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "anchoring_type") == 0) {
+      input_file >> nn;
+      input_file >> input_params.anchoring_type[nn];
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "W") == 0) {
+      input_file >> nn;
+      input_file >> input_params.W[nn];
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "phi_s") == 0) {
+      input_file >> nn;
+      input_file >> input_params.phi_s[nn];
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "theta_s") == 0) {
+      input_file >> nn;
+      input_file >> input_params.theta_s[nn];
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "nk") * strcasecmp(parser, "neighbour_kind") * strcasecmp(parser, "neighbour") == 0) {
+      int nk_val;
+      input_file >> nk_val;
+      input_file.getline(garbage, 400);
+      if (nk_val != 1) {
+        fprintf(stderr,
+          "\n  [ERROR] neighbour_kind = %d is not supported.\n"
+          "          Only nk = 1 (nearest neighbours) is allowed.\n"
+          "          Please remove or correct the 'nk' entry in your parameter file.\n\n",
+          nk_val);
+        exit(1);
+      }
+      input_params.neighbourKind = 1;
+    } else if (strcasecmp(parser, "elecX")*strcasecmp(parser, "Electric_field_x")*strcasecmp(parser, "EF_x") == 0) {
+      input_file >> input_params.elecX;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "elecY")*strcasecmp(parser, "Electric_field_y")*strcasecmp(parser, "EF_y")  == 0) {
+      input_file >> input_params.elecY;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "elecZ")*strcasecmp(parser, "Electric_field_z")*strcasecmp(parser, "EF_z")  == 0) {
+      input_file >> input_params.elecZ;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "Ei")*strcasecmp(parser, "initial_E")  == 0) {
+      input_file >> input_params.elecEi;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "Ef")*strcasecmp(parser, "final_E")  == 0) {
+      input_file >> input_params.elecEf;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "dE")*strcasecmp(parser, "E_variation")  == 0) {
+      input_file >> input_params.elecdE;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "elecA")*strcasecmp(parser, "dielectric_anisotropy")*strcasecmp(parser, "Aniso_E")  == 0) {
+      input_file >> input_params.elecA;
+      input_file.getline(garbage, 400);
+    } else {
+      fprintf(stderr, "  [ERROR] Unknown parameter: '%s'\n", parser);
       exit(3);
     }
-
-    check_error_bits(&f, token);
+    check_error_bits(&input_file, parser);
   }
-  return p;
+
+  return input_params;
 }
 
+// ─── print_parameters ───────────────────────────────────────────────────────
+
 void print_parameters(Parameters params) {
-  printf("### Simulation parameters ###\n");
-  printf("Nx  %d\n", params.Nx);
-  printf("Ny  %d\n", params.Ny);
-  printf("Nz  %d\n", params.Nz);
-  printf("MCS %d\n", params.MCS);
-  printf("MCT %d\n", params.MCT);
+  print_header("SIMULATION PARAMETERS");
+  printf("  %-20s %dx%dx%d\n",   "Grid:",     params.Nx, params.Ny, params.Nz);
+  printf("  %-20s %s\n",         "Device:",   params.use_gpu ? "GPU (CUDA)" : "CPU (OpenMP)");
+  printf("  %-20s %s\n",         "Geometry:", params.geometry);
+  printf("  %-20s %s\n",         "Potential:",params.potential);
+  printf("  %-20s %s\n",         "Mode:",     params.evol);
+  printf("  %-20s %d steps\n",   "MCS:",      params.MCS);
+  printf("  %-20s %d steps\n",   "MCT:",      params.MCT);
   if (strcasecmp(params.ic, "ic_file") == 0)
-    printf("ic_file  %s\n", params.ic_file);
-  printf("mode  %s\n", params.potential);
+    printf("  %-20s %s\n",       "IC file:",  params.ic_file);
   if (params.elecA) {
-    printf("### Electric field ###\n");
-    printf("Electric_field_x          %g\n", params.elecX);
-    printf("Electric_field_y          %g\n", params.elecY);
-    printf("Electric_field_z          %g\n", params.elecZ);
-    printf("Dielectric_anisotropy     %g\n", params.elecA);
+    printf("\n  Electric Field\n");
+    printf("  %-20s (%g, %g, %g)\n", "Direction:", params.elecX, params.elecY, params.elecZ);
+    printf("  %-20s %g\n",           "Anisotropy:", params.elecA);
   }
+  print_separator();
   printf("\n");
 }
 
-void setGHRL(Parameters& params) {
+// ─── setGHRL ────────────────────────────────────────────────────────────────
+
+void setGHRL(Parameters &params) {
   float k11 = params.k11;
   float k22 = params.k22;
   float k33 = params.k33;
   float p0  = params.p0;
-  float Scale = fabs((9.0f) / (k11 - 3*k22 - k33));
+  float Scale = fabs((9.0) / (k11 - 3 * k22 - k33));
 
-  params.ghrl_sigma  = p0 ? -Scale * k22 * (2*M_PI / p0) : 0;
-  params.ghrl_lambda = (Scale / 9) * (2*k11 - 3*k22 + k33);
+  params.ghrl_sigma  = p0 ? -Scale * k22 * (2 * M_PI / p0) : 0;
+  params.ghrl_lambda = (Scale / 9) * (2 * k11 - 3 * k22 + k33);
   params.ghrl_mu     = Scale * (k22 - k11);
   params.ghrl_rho    = (Scale / 9) * (k11 - k33);
-  params.ghrl_nu     = (Scale / 9) * (k11 - 3*k22 - k33);
-  params.neighbourScale = (k11 + k33) / k22;
+  params.ghrl_nu     = (Scale / 9) * (k11 - 3 * k22 - k33);
 
-  printf("### Elastic parameters:\n");
-  printf("k11 %g\nk22 %g\nk33 %g\n", k11, k22, k33);
-  printf("lambda %g\nmu     %g\nrho    %g\nnu     %g\nsigma  %g\n\n",
-         params.ghrl_lambda, params.ghrl_mu, params.ghrl_rho,
-         params.ghrl_nu, params.ghrl_sigma);
-  printf("# scaled by %g\n\n", Scale);
-
-  if (params.neighbourKind == 2) {
-    printf("### Second-neighbour parameter scales:\n");
-    printf("lambda_scale %g\n", params.lambdaScale);
-    printf("mu_scale     %g\n", params.muScale);
-    printf("rho_scale    %g\n", params.rhoScale);
-    printf("nu_scale     %g\n", params.nuScale);
-    printf("sigma_scale  %g\n", params.sigmaScale);
-  }
+  print_header("ELASTIC PARAMETERS");
+  printf("  %-12s %g\n", "k11:",    k11);
+  printf("  %-12s %g\n", "k22:",    k22);
+  printf("  %-12s %g\n", "k33:",    k33);
+  printf("  %-12s %g\n", "lambda:", params.ghrl_lambda);
+  printf("  %-12s %g\n", "mu:",     params.ghrl_mu);
+  printf("  %-12s %g\n", "rho:",    params.ghrl_rho);
+  printf("  %-12s %g\n", "nu:",     params.ghrl_nu);
+  printf("  %-12s %g\n", "sigma:",  params.ghrl_sigma);
+  printf("  %-12s %g\n", "scale:",  Scale);
+  print_separator();
+  printf("\n");
 }
 
-void check_error_bits(std::ifstream* f, const char* parser) {
+// ─── check_error_bits ───────────────────────────────────────────────────────
+
+void check_error_bits(std::ifstream *f, const char *parser) {
+  if (f->eof()) {
+    // EOF after getline is normal — not an error condition.
+    return;
+  }
   if (f->fail()) {
-    std::cerr << "Invalid value for parameter: " << parser << std::endl;
+    std::cerr << "  [ERROR] Invalid value for parameter: " << parser << std::endl;
     exit(1);
   }
   if (f->bad()) {
-    std::cerr << "Stream error while reading parameter: " << parser << std::endl;
+    std::cerr << "  [ERROR] Stream error while reading parameter: " << parser << std::endl;
     exit(1);
   }
 }

@@ -14,7 +14,7 @@
 #include "../include/potential.h"
 #define MAX(a, b) (a > b ? a : b)
 Custom_Geometry::Custom_Geometry(int *pt, Parameters *params) : Geometry(params) {
-  printf("Geometry: Custom\n");
+  printf("  Geometry     : Custom\n");
 
   ns = (float *)calloc(Nx * Ny * Nz * 3, sizeof(float));
   pt = set_point_type_normals(pt, params);
@@ -25,7 +25,7 @@ Custom_Geometry::Custom_Geometry(int *pt, Parameters *params) : Geometry(params)
   else if (strcasecmp(params->XBoundtype, "periodic") == 0)
     params->XBound = &Periodic_Boundary;
   else {
-    fprintf(stderr, "X boundary condition: %s not implemented \n", params->XBoundtype);
+    fprintf(stderr, "  [ERROR] X boundary '%s' not implemented. Options: free | periodic\n", params->XBoundtype);
     exit(2);
   }
 
@@ -34,7 +34,7 @@ Custom_Geometry::Custom_Geometry(int *pt, Parameters *params) : Geometry(params)
   else if (strcasecmp(params->YBoundtype, "periodic") == 0)
     params->YBound = &Periodic_Boundary;
   else {
-    fprintf(stderr, "Y boundary condition: %s not implemented \n", params->YBoundtype);
+    fprintf(stderr, "  [ERROR] Y boundary '%s' not implemented. Options: free | periodic\n", params->YBoundtype);
     exit(2);
   }
 
@@ -43,13 +43,13 @@ Custom_Geometry::Custom_Geometry(int *pt, Parameters *params) : Geometry(params)
   else if (strcasecmp(params->ZBoundtype, "periodic") == 0)
     params->ZBound = &Periodic_Boundary;
   else {
-    fprintf(stderr, "Z boundary condition: %s not implemented \n", params->ZBoundtype);
+    fprintf(stderr, "  [ERROR] Z boundary '%s' not implemented. Options: free | periodic\n", params->ZBoundtype);
     exit(2);
   }
 
-  printf("xbound  %s\n", params->XBoundtype);
-  printf("ybound  %s\n", params->YBoundtype);
-  printf("zbound  %s\n", params->ZBoundtype);
+  printf("  X boundary   : %s\n", params->XBoundtype);
+  printf("  Y boundary   : %s\n", params->YBoundtype);
+  printf("  Z boundary   : %s\n", params->ZBoundtype);
   printf("\n");
 }
 
@@ -62,7 +62,7 @@ int *Custom_Geometry::set_point_type_normals(int *pt, Parameters *params) {
     perror(params->bound_file_name);
     exit(2);
   }
-  printf("Reading boundaries from %s\n", params->bound_file_name);
+  printf("  Boundary file: %s\n", params->bound_file_name);
   char *line = (char *)malloc(500);
   std::string testline;
   line = fgets(line, 500, bound_input);
@@ -83,7 +83,7 @@ int *Custom_Geometry::set_point_type_normals(int *pt, Parameters *params) {
     if (strcasecmp(names, "pt") == 0)
       pos_pt = i;
   }
-  printf("Using the positions of nx %d ny %d nz %d and pt %d.\n ", pos_nx, pos_ny, pos_nz, pos_pt);
+  printf("  Column positions: nx=%d  ny=%d  nz=%d  pt=%d\n", pos_nx, pos_ny, pos_nz, pos_pt);
   line_number = 0;
   line = fgets(line, 500, bound_input);
   for (i = 0; i < Nx * Ny * Nz; i++) {
@@ -102,7 +102,7 @@ int *Custom_Geometry::set_point_type_normals(int *pt, Parameters *params) {
     int kk = (int)var[2];
     line_number++;
     if (ii >= Nx || jj >= Ny || kk >= Nz) {
-      fprintf(stderr, "Point out of the simulation box at line %d\n", line_number);
+      fprintf(stderr, "  [ERROR] Point out of simulation box at line %d\n", line_number);
       exit(10);
     }
     if ((int)var[pos_pt] < 0) {
@@ -120,7 +120,7 @@ Please, use 0 as empty space, 1 as bulk and 2+ as surface point type.\n",
     max_point_kind = MAX(max_point_kind, pt[(Ny * kk + jj) * Nx + ii]);
   }
   nSurfaces = max_point_kind - 1;
-  printf("%d boundary(boundaries) found in %s!!\n\n", nSurfaces, params->bound_file_name);
+  printf("  %d boundary surface(s) found.\n\n", nSurfaces);
   fflush(stdout);
   fclose(bound_input);
   return pt;
@@ -133,16 +133,12 @@ float Custom_Geometry::latice_Potential(const nni fullni[7]) {
   
   E = Geometry::newman_neighbours(fullni);
 
-  if (params->neighbourKind == 3)
-    E += Geometry::third_nerghbours(fullni);
-  if (params->neighbourKind > 1)
-    E += Geometry::second_nerghbours(fullni);
-  if (fullni[0].pt > 1){
+  if (fullni[0].pt > 1) {
     float s[3] = {fullni[7].x, fullni[7].y, fullni[7].z};
     E += surfaces[fullni[0].pt - 2]->surface_potential(ni, s);
   }
-  if (params->elecA!=0) 
-    E+=Electric_Potential(ni,params);
+  if (params->elecA!=0)
+    E += Electric_Potential(ni, params);
 
   return E;
 }

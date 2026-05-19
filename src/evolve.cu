@@ -22,6 +22,15 @@ namespace cg = cooperative_groups;
 #include <curand_kernel.h>
 using std::string;
 
+// Simple CUDA error checking helper
+#define CUDA_CHECK(call) do { \
+  cudaError_t _e = (call); \
+  if (_e != cudaSuccess) { \
+    printf("CUDA error %s:%d: %s\n", __FILE__, __LINE__, cudaGetErrorString(_e)); \
+    exit(20); \
+  } \
+} while (0)
+
 __global__ void initRNG(curandState *const rngStates, const unsigned int seed, const unsigned int nStates)
 {
   const unsigned int tid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -59,7 +68,7 @@ __global__ void get_Energy (float *ni,
   int i = idx % Nx;
   int j = (idx / Nx) % Ny;
   int k = idx / (Nx * Ny);
-  // nni nLocal[8+(params->neighbourKind==2?12:0)+(params->neighbourKind==3?20:0)];
+
   nni nLocal[28];
   
   int im=(i-1); int ip=(i+1);
@@ -89,30 +98,6 @@ __global__ void get_Energy (float *ni,
     nLocal[7].z=d_ns[(i+Nx*(j+Ny*k))*3+2];  
     nLocal[7].pt=pt[(i+Nx*(j+Ny*k))];
     // printf("%g %g %g %d\n",nLocal[7].x,nLocal[7].y,nLocal[7].z,nLocal[7].pt ); 
-  }
-  if (params->neighbourKind >1) {
-    setNni(ip+Nx*(jp+Ny*k),neighbour[0]*neighbour[2],&nLocal[8],ni,pt);
-    setNni(ip+Nx*(jm+Ny*k),neighbour[0]*neighbour[3],&nLocal[9],ni,pt);
-    setNni(ip+Nx*(j+Ny*kp),neighbour[0]*neighbour[4],&nLocal[10],ni,pt);
-    setNni(ip+Nx*(j+Ny*km),neighbour[0]*neighbour[5],&nLocal[11],ni,pt);
-    setNni(im+Nx*(jp+Ny*k),neighbour[1]*neighbour[2],&nLocal[12],ni,pt);
-    setNni(im+Nx*(jm+Ny*k),neighbour[1]*neighbour[3],&nLocal[13],ni,pt);
-    setNni(im+Nx*(j+Ny*kp),neighbour[1]*neighbour[4],&nLocal[14],ni,pt);
-    setNni(im+Nx*(j+Ny*km),neighbour[1]*neighbour[5],&nLocal[15],ni,pt);
-    setNni(i+Nx*(jp+Ny*kp),neighbour[2]*neighbour[4],&nLocal[16],ni,pt);
-    setNni(i+Nx*(jp+Ny*km),neighbour[2]*neighbour[5],&nLocal[17],ni,pt);
-    setNni(i+Nx*(jm+Ny*kp),neighbour[3]*neighbour[4],&nLocal[18],ni,pt);
-    setNni(i+Nx*(jm+Ny*km),neighbour[3]*neighbour[5],&nLocal[19],ni,pt);
-  }  
-  if (params->neighbourKind == 3 ) {
-    setNni(ip+Nx*(jp+Ny*kp),neighbour[0]*neighbour[2]*neighbour[4],&nLocal[20],ni,pt);
-    setNni(ip+Nx*(jp+Ny*km),neighbour[0]*neighbour[2]*neighbour[5],&nLocal[21],ni,pt);
-    setNni(ip+Nx*(jm+Ny*kp),neighbour[0]*neighbour[3]*neighbour[4],&nLocal[22],ni,pt);
-    setNni(ip+Nx*(jm+Ny*km),neighbour[0]*neighbour[3]*neighbour[5],&nLocal[23],ni,pt);
-    setNni(im+Nx*(jp+Ny*kp),neighbour[1]*neighbour[2]*neighbour[4],&nLocal[24],ni,pt);
-    setNni(im+Nx*(jp+Ny*km),neighbour[1]*neighbour[2]*neighbour[5],&nLocal[25],ni,pt);
-    setNni(im+Nx*(jm+Ny*kp),neighbour[1]*neighbour[3]*neighbour[4],&nLocal[26],ni,pt);
-    setNni(im+Nx*(jm+Ny*km),neighbour[1]*neighbour[3]*neighbour[5],&nLocal[27],ni,pt);
   }
   h_eLat[idx]=latice_Potential_GPU(nLocal, params);
 }
@@ -213,30 +198,6 @@ __device__ void EvolveNGPU::MC_GPU (dim3 tick,
       nLocal[7].z=d_ns[(i+Nx*(j+Ny*k))*3+2];  
       nLocal[7].pt=pt[(i+Nx*(j+Ny*k))];
     }
-    if (params->neighbourKind >1) {
-      setNni(ip+Nx*(jp+Ny*k ),neighbour[0]*neighbour[2],&nLocal[ 8],ni,pt);
-      setNni(ip+Nx*(jm+Ny*k ),neighbour[0]*neighbour[3],&nLocal[ 9],ni,pt);
-      setNni(ip+Nx*(j +Ny*kp),neighbour[0]*neighbour[4],&nLocal[10],ni,pt);
-      setNni(ip+Nx*(j +Ny*km),neighbour[0]*neighbour[5],&nLocal[11],ni,pt);
-      setNni(im+Nx*(jp+Ny*k ),neighbour[1]*neighbour[2],&nLocal[12],ni,pt);
-      setNni(im+Nx*(jm+Ny*k ),neighbour[1]*neighbour[3],&nLocal[13],ni,pt);
-      setNni(im+Nx*(j +Ny*kp),neighbour[1]*neighbour[4],&nLocal[14],ni,pt);
-      setNni(im+Nx*(j +Ny*km),neighbour[1]*neighbour[5],&nLocal[15],ni,pt);
-      setNni(i +Nx*(jp+Ny*kp),neighbour[2]*neighbour[4],&nLocal[16],ni,pt);
-      setNni(i +Nx*(jp+Ny*km),neighbour[2]*neighbour[5],&nLocal[17],ni,pt);
-      setNni(i +Nx*(jm+Ny*kp),neighbour[3]*neighbour[4],&nLocal[18],ni,pt);
-      setNni(i +Nx*(jm+Ny*km),neighbour[3]*neighbour[5],&nLocal[19],ni,pt);
-    } 
-    if (params->neighbourKind == 3 ) {
-      setNni(ip+Nx*(jp+Ny*kp),neighbour[0]*neighbour[2]*neighbour[4],&nLocal[20],ni,pt);
-      setNni(ip+Nx*(jp+Ny*km),neighbour[0]*neighbour[2]*neighbour[5],&nLocal[21],ni,pt);
-      setNni(ip+Nx*(jm+Ny*kp),neighbour[0]*neighbour[3]*neighbour[4],&nLocal[22],ni,pt);
-      setNni(ip+Nx*(jm+Ny*km),neighbour[0]*neighbour[3]*neighbour[5],&nLocal[23],ni,pt);
-      setNni(im+Nx*(jp+Ny*kp),neighbour[1]*neighbour[2]*neighbour[4],&nLocal[24],ni,pt);
-      setNni(im+Nx*(jp+Ny*km),neighbour[1]*neighbour[2]*neighbour[5],&nLocal[25],ni,pt);
-      setNni(im+Nx*(jm+Ny*kp),neighbour[1]*neighbour[3]*neighbour[4],&nLocal[26],ni,pt);
-      setNni(im+Nx*(jm+Ny*km),neighbour[1]*neighbour[3]*neighbour[5],&nLocal[27],ni,pt);
-    }  
     //Old energy calculation
     E_old=latice_Potential_GPU(nLocal, params);
     //New energy calculation
@@ -348,10 +309,7 @@ void EvolveNGPU::Monte_Carlo_Step_GPU(float &ang_var, gsl_rng * r) {
     float *local_W=(float*) malloc(nSurfaces*sizeof(float));
     for (int ii=0; ii<nSurfaces; ii++)
     {
-      int wScale=1;
-      if (params->neighbourKind==2)
-        wScale=4;
-      local_W[ii]=wScale*params->W[ii];
+      local_W[ii] = params->W[ii];
       sprintf(surfaceNames,"%s",geometry->surfaces[ii]->getName());
       cudaMemcpy(d_surfaceNames,surfaceNames, 50*sizeof(char),cudaMemcpyHostToDevice);
     printf("%s\n",surfaceNames  );

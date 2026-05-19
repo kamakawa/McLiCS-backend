@@ -18,9 +18,13 @@ k33  1
 
 ic  random
 
-evol thermal
+evol  thermal
 
 geometry  bulk
 xbound  periodic
 ybound  periodic
 zbound  periodic
+
+# Device selection: cpu (default) or gpu
+# Can be overridden on the command line with --cpu or --gpu
+device  cpu

@@ -13,7 +13,7 @@
 #include "../include/potential.h"
 
 Sphere_Geometry::Sphere_Geometry(int *pt, Parameters *params) : Geometry(params) {
-  printf("Geometry: Sphere\n");
+  printf("  Geometry     : Sphere\n");
   nSurfaces = 1;
   sprintf(params->XBoundtype, "free");
   sprintf(params->YBoundtype, "free");
@@ -59,10 +59,6 @@ float Sphere_Geometry::latice_Potential(const nni fullni[7]) {
   float s[3] = {fullni[7].x, fullni[7].y, fullni[7].z};
   E = Geometry::newman_neighbours(fullni);
 
-  if (params->neighbourKind > 1)
-    E += Geometry::second_nerghbours(fullni);
-  if (params->neighbourKind == 3)
-    E += Geometry::third_nerghbours(fullni);
   if (fullni[0].pt > 1)
     E += surfaces[fullni[0].pt - 2]->surface_potential(ni, s);
   if (params->elecA!=0) 

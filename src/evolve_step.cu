@@ -17,15 +17,20 @@
 #include <ctime>
 using std::string;
 
-stepEvolveNGPU::stepEvolveNGPU(float *ni, int *ppt, Parameters *params) : EvolveNGPU(ni,ppt,params){
+stepEvolveNGPU::stepEvolveNGPU(float *ni, int *ppt, Parameters *params)
+:Nx(params->Nx),Ny(params->Ny),Nz(params->Nz),EvolveNGPU(ni,ppt,params){
 printf("Initializing Step loop:\n");
 printf("Initial File Number= %d\n",params->first_file);
 printf("Last File Number= %d\n\n",params->first_file+params->fn);
+this->ni=ni;
+this->pt=ppt;
+this->params=params;
 d_params=EvolveNGPU::d_params;
 }; 
 
 int stepEvolveNGPU::run(){
   
+//~   float BCB, CBC,P1,V1,B1,C1,vec_nt[3];
   float Nt=Nx*Ny*Nz;
   float S1, S2, sTemp;
   float tempE, E2, E;
@@ -45,24 +50,25 @@ int stepEvolveNGPU::run(){
     throw std::runtime_error(msg);
   }
     
-  CUDA_CHECK(cudaMalloc((void **) &d_ni, 3*Nt*sizeof(float)));
-  CUDA_CHECK(cudaMalloc((void **) &d_pt, Nt*sizeof(int)));
-  CUDA_CHECK(cudaMalloc((void **) &d_T, sizeof(float)));
-  CUDA_CHECK(cudaMalloc((void **) &d_params, sizeof(Parameters)));
-  CUDA_CHECK(cudaMalloc((void **) &d_acc, Nt*sizeof(unsigned int)));  
+  cudaMalloc((void **)&d_ni, 3*Nt*sizeof(float));
+  cudaMalloc((void **)&d_pt, Nt*sizeof(int));
+  cudaMalloc((void **)&d_T, sizeof(float));
+  cudaMalloc((void **)&d_params, sizeof(Parameters));
+  cudaMalloc((void **)&d_acc, Nt*sizeof(unsigned int));  
   
-  CUDA_CHECK(cudaMemcpy(d_ni, ni, 3*Nt*sizeof(float), cudaMemcpyHostToDevice));
-  CUDA_CHECK(cudaMemcpy(d_pt, pt, Nt*sizeof(int), cudaMemcpyHostToDevice));
-  CUDA_CHECK(cudaMemcpy(d_params, params, sizeof(Parameters), cudaMemcpyHostToDevice));
+  cudaMemcpy(d_ni, ni, 3*Nt*sizeof(float), cudaMemcpyHostToDevice);
+  cudaMemcpy(d_pt, pt, Nt*sizeof(int), cudaMemcpyHostToDevice);
+  cudaMemcpy(d_params, params, sizeof(Parameters), cudaMemcpyHostToDevice);
+//~   cudaMemcpy(d_acc, &acceptance, sizeof(unsigned int), cudaMemcpyHostToDevice);
   // Initialize GPU RNG states (1D launch)
   const unsigned int nStates = tick.x * tick.y * tick.z;
   const int rngThreads = 256;
   const int rngBlocks  = (nStates + rngThreads - 1) / rngThreads;
   initRNG<<<rngBlocks, rngThreads>>>(d_rngStates, 1u, nStates);
   cudaDeviceSynchronize();
-  CUDA_CHECK(cudaMemcpy(d_T, &params->T, sizeof(float), cudaMemcpyHostToDevice));
-
+  cudaMemcpy(d_T, &params->T, sizeof(float), cudaMemcpyHostToDevice);
     
+//~   int num_threads=omp_get_max_threads();
   // Host RNG (kept for API compatibility; GPU uses curand)
   gsl_rng_env_setup();
   gsl_rng * rng = gsl_rng_alloc(gsl_rng_default);
@@ -71,8 +77,7 @@ int stepEvolveNGPU::run(){
   sprintf(fname,"po.dat");
   FILE *po_file=fopen(fname,"a");
   fprintf(po_file,"ii S varS E varE\n"); fflush(po_file);
-  params->T=params->Ti;
-  CUDA_CHECK(cudaMemcpy(d_T, &params->T, sizeof(float), cudaMemcpyHostToDevice));
+  params->T=params->Ti; cudaMemcpy(d_T, &params->T, sizeof(float), cudaMemcpyHostToDevice);
   printf("Step relaxation, for nematic molecules, using MCT=%d MCS=%d and fn=%d\n",
   params->MCT,params->MCS,params->fn); fflush(stdout);
   for (int ii=params->first_file; ii< params->fn+params->first_file; ii++){
@@ -103,5 +108,6 @@ int stepEvolveNGPU::run(){
   }
   fclose(po_file);
   gsl_rng_free (rng);
+//~   for (int i=0; i<num_threads; i++) gsl_rng_free (rng[i]);
   return 0;
 }

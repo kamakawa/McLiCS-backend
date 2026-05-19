@@ -44,6 +44,10 @@ struct Parameters {
   float ghrl_nu = 1;
   float ghrl_sigma = 0;
 
+  // Device selection: true = GPU (requires CUDA build), false = CPU (default).
+  // Set via 'device gpu' in the parameter file, or --gpu / --cpu on the command line.
+  bool use_gpu = false;
+
   //MC Variables
   char evol[20] = "thermal";
   int MCS = 1e2;
@@ -62,14 +66,8 @@ struct Parameters {
   float k33 = 1;
   float p0 = 0;
 
-  //NeighbourHood
+  //NeighbourHood — only nearest neighbours (nk=1) are supported
   int neighbourKind = 1;
-  float rhoScale = 1.0;
-  float lambdaScale = 1.0;
-  float muScale = 1.0;
-  float nuScale = 1.0;
-  float sigmaScale = 1.0;
-  float neighbourScale = 1.0;
 
   //Electric Field Variables
   float elecX  = 0;
