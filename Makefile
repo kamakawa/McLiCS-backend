@@ -24,8 +24,17 @@ GPUFLAGS := -O3 -std=c++17 -arch=$(GPU_ARCH)
 
 LIB      := -lm -lgsl -lgslcblas -lgomp
 
-# Detect whether nvcc is available
-HAS_CUDA := $(shell which nvcc > /dev/null 2>&1 && echo yes)
+# Detect whether nvcc is available (searches PATH + common CUDA install locations)
+NVCC_SEARCH := $(shell \
+  which nvcc 2>/dev/null \
+  || ls /usr/local/cuda/bin/nvcc 2>/dev/null \
+  || ls /usr/local/cuda-*/bin/nvcc 2>/dev/null | tail -1 \
+  || ls /opt/cuda/bin/nvcc 2>/dev/null)
+HAS_CUDA := $(if $(NVCC_SEARCH),yes)
+# Use the full path found above so nvcc works even if not in PATH
+ifneq ($(NVCC_SEARCH),)
+  GPUCOMP := $(NVCC_SEARCH)
+endif
 
 # ---------------------------------------------------------------------------
 # Source lists
@@ -73,7 +82,19 @@ build/%.cuda.o: src/%.cu $(HEADERS) | build
 else
 
 gpu:
-	@echo "Error: nvcc not found. Cannot build GPU target."
+	@echo ""
+	@echo "ERROR: nvcc not found — cannot build GPU target."
+	@echo ""
+	@echo "  nvcc was searched in:"
+	@echo "    - PATH"
+	@echo "    - /usr/local/cuda/bin/"
+	@echo "    - /usr/local/cuda-*/bin/"
+	@echo "    - /opt/cuda/bin/"
+	@echo ""
+	@echo "  To fix, either:"
+	@echo "    1) Install the CUDA Toolkit: https://developer.nvidia.com/cuda-downloads"
+	@echo "    2) Add nvcc to PATH:  export PATH=/usr/local/cuda/bin:\$$PATH"
+	@echo ""
 	@exit 1
 
 endif

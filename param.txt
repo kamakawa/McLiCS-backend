@@ -14,7 +14,7 @@ Ny  20
 Nz  20
 
 # Dispositivo
-device  cpu
+# device  gpu
 
 # Potencial GHRL com constantes elásticas iguais
 potential  ghrl
