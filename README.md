@@ -1,4 +1,4 @@
-# McLiCS — Monte Carlo Liquid Crystal Simulator
+# MClist — Monte Carlo Liquid Crystal Simulator
 
 > Simulador Monte Carlo de cristais líquidos nemáticos desenvolvido como projeto de Iniciação Científica.
 
