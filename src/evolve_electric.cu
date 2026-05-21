@@ -31,12 +31,9 @@ d_params=EvolveNGPU::d_params;
 }; 
 
 int electricEvolveNGPU::run(){
-  //~ for (int ii=0; ii<geometry->nSurfaces; ii++) surfaces[ii]=geometry->surfaces[ii];
   float Nt=Nx*Ny*Nz;
   float S1, S2;
-  //~ float P1,V1,B1,C1, BCB, CBC;
   float sTemp;
-  //~ float vec_nt[3];
   float vec_n[3] ;
   float mat_n[9] ;
   float ang_var=0.5;
@@ -61,15 +58,13 @@ int electricEvolveNGPU::run(){
   cudaMemcpy(d_ni, ni, 3*Nt*sizeof(float), cudaMemcpyHostToDevice);
   cudaMemcpy(d_pt, pt, Nt*sizeof(int), cudaMemcpyHostToDevice);
   cudaMemcpy(d_params, params, sizeof(Parameters), cudaMemcpyHostToDevice);
-//~   cudaMemcpy(d_acc, &acceptance, sizeof(unsigned int), cudaMemcpyHostToDevice);
-  // Initialize GPU RNG states (1D launch)
+
   const unsigned int nStates = tick.x * tick.y * tick.z;
   const int rngThreads = 256;
   const int rngBlocks  = (nStates + rngThreads - 1) / rngThreads;
   initRNG<<<rngBlocks, rngThreads>>>(d_rngStates, 1u, nStates);
   cudaDeviceSynchronize();
 
-  // Host RNG (kept for API compatibility; GPU uses curand)
   gsl_rng_env_setup();
   gsl_rng * rng = gsl_rng_alloc(gsl_rng_default);
   gsl_rng_set(rng, (unsigned long)time(nullptr));

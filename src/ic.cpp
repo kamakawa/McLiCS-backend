@@ -38,11 +38,6 @@ void random_ic(float *ni, int *pt, Parameters params) {
     for (int j = 0; j < params.Ny; j++) {
       for (int k = 0; k < params.Nz; k++) {
         if (pti(i, j, k)) {
-          //~ float theta=gsl_rng_uniform(rng);
-          //~ float phi=gsl_rng_uniform(rng);
-          //~ nix(i,j,k)=sin(phi*M_PI)*cos(2*theta*M_PI);
-          //~ niy(i,j,k)=sin(phi*M_PI)*sin(2*theta*M_PI);
-          //~ niz(i,j,k)=cos(phi*M_PI);
           gsl_ran_dir_3d(rng, &nx, &ny, &nz);
           nix(i, j, k) = nx;
           niy(i, j, k) = ny;

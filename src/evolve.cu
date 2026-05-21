@@ -22,7 +22,6 @@ namespace cg = cooperative_groups;
 #include <curand_kernel.h>
 using std::string;
 
-// Simple CUDA error checking helper
 #define CUDA_CHECK(call) do { \
   cudaError_t _e = (call); \
   if (_e != cudaSuccess) { \
@@ -97,7 +96,6 @@ __global__ void get_Energy (float *ni,
     nLocal[7].y=d_ns[(i+Nx*(j+Ny*k))*3+1];
     nLocal[7].z=d_ns[(i+Nx*(j+Ny*k))*3+2];  
     nLocal[7].pt=pt[(i+Nx*(j+Ny*k))];
-    // printf("%g %g %g %d\n",nLocal[7].x,nLocal[7].y,nLocal[7].z,nLocal[7].pt ); 
   }
   h_eLat[idx]=latice_Potential_GPU(nLocal, params);
 }
@@ -131,8 +129,7 @@ __device__ void EvolveNGPU::MC_GPU (dim3 tick,
   int Nz=params->Nz;
   float fPi=M_PI;
   int Idx=blockIdx.x*blockDim.x+threadIdx.x;
-  // Kernels may launch with more threads than tick.x*tick.y*tick.z.
-  // Guard before reading rngStates[Idx].
+
   const int nStates = (int)(tick.x * tick.y * tick.z);
   if (Idx >= nStates) return;
   int iBox=Idx%tick.x;
@@ -156,7 +153,6 @@ __device__ void EvolveNGPU::MC_GPU (dim3 tick,
       return;
     }
     va= (2*curand_uniform(localState)-1)*ang_var; 
-    //Create a rotation candidate
     rotation_type=curand_uniform(localState);
     if (rotation_type < 0.333) {
       nNew[0]=nix(i,j,k);
@@ -198,15 +194,12 @@ __device__ void EvolveNGPU::MC_GPU (dim3 tick,
       nLocal[7].z=d_ns[(i+Nx*(j+Ny*k))*3+2];  
       nLocal[7].pt=pt[(i+Nx*(j+Ny*k))];
     }
-    //Old energy calculation
     E_old=latice_Potential_GPU(nLocal, params);
-    //New energy calculation
     nLocal[0].x = nNew[0];
     nLocal[0].y = nNew[1];
     nLocal[0].z = nNew[2];
     E_new=latice_Potential_GPU(nLocal, params);
   
-    //test new config
     ranVal=curand_uniform(localState);
     if (ranVal<=expf(-(E_new-E_old)/T) )
     {
@@ -280,7 +273,6 @@ __global__ void setELat(double *h_eLat) {
 }
 
 void EvolveNGPU::Monte_Carlo_Step_GPU(float &ang_var, gsl_rng * r) {
-  // NOTE: 'r' is kept for API compatibility; GPU uses curand.
   static unsigned int nThread=8;
   static int redSteps, redSteps2, nRed, maxNThread, vallid=0;
   static int Nt=params->Nx*params->Ny*params->Nz;
@@ -334,7 +326,6 @@ void EvolveNGPU::Monte_Carlo_Step_GPU(float &ang_var, gsl_rng * r) {
       }
     }
     cudaFree(d_surfaceNames);
-    // Keep these allocations for the lifetime of the EvolveNGPU object.
     if (!d_ns_buf) CUDA_CHECK(cudaMalloc(&d_ns_buf, 3*Nt*sizeof(float)));
     if (!d_W_buf)  CUDA_CHECK(cudaMalloc(&d_W_buf,  nSurfaces*sizeof(float)));
 
@@ -448,7 +439,6 @@ float EvolveNGPU::energy_calculator_GPU() {
 }
 
 EvolveNGPU::~EvolveNGPU() {
-  // Free device allocations we own. Safe even if nullptr.
   if (d_rngStates) CUDA_CHECK(cudaFree(d_rngStates));
   if (d_ni)        CUDA_CHECK(cudaFree(d_ni));
   if (d_pt)        CUDA_CHECK(cudaFree(d_pt));

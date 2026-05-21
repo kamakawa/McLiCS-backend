@@ -30,7 +30,6 @@ simulator::~simulator() {
 }
 
 void simulator::Setup_simmulation(Parameters& p) {
-    // Release previous state if Setup is called more than once.
     delete evolve;
     evolve = nullptr;
     std::free(ni); ni = nullptr;
@@ -48,7 +47,6 @@ void simulator::Setup_simmulation(Parameters& p) {
         std::exit(2);
     }
 
-    // --- Build simulation objects via factory ---
     evolve           = SimulatorFactory::createEvolve(ni, pt, &p);
     evolve->geometry = SimulatorFactory::createGeometry(pt, &p);
 

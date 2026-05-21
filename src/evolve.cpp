@@ -43,21 +43,6 @@ float EvolveN::energy_calculator() {
     int i = idx % Nx;
     int j = (idx / Nx) % Ny;
     int k = idx / (Nx * Ny);
-    if (i >= Nx || i<0) {
-      printf("Tem cachorro nesse mato (%d %d %d )\n", i, j, k);
-      fflush(stdout);
-      exit(1);
-    }
-    if (j >= Ny|| j<0) {
-      printf("Tem cachorro nesse mato (%d %d %d )\n", i, j, k);
-      fflush(stdout);
-      exit(1);
-    }
-    if (k >= Nz|| k<0) {
-      printf("Tem cachorro nesse mato (%d %d %d )\n", i, j, k);
-      fflush(stdout);
-      exit(1);
-    }
 
     int im = (i - 1), ip = (i + 1);
     int jm = (j - 1), jp = (j + 1);
@@ -78,7 +63,6 @@ float EvolveN::energy_calculator() {
       nLocal[7].y = geometry->ns[(i + Nx * (j + Ny * k)) * 3 + 1];
       nLocal[7].z = geometry->ns[(i + Nx * (j + Ny * k)) * 3 + 2];
       nLocal[7].pt = 1;
-      //~ printf("%g %g %g %d\n",nLocal[7].x,nLocal[7].y,nLocal[7].z,nLocal[7].pt );
     }
     Etot += geometry->latice_Potential(nLocal);
   }
@@ -157,11 +141,8 @@ void EvolveN::Monte_Carlo_Step(float &ang_var, gsl_rng **r) {
         nLocal[7].y = geometry->ns[(i + Nx * (j + Ny * k)) * 3 + 1];
         nLocal[7].z = geometry->ns[(i + Nx * (j + Ny * k)) * 3 + 2];
         nLocal[7].pt = 1;
-        //~ printf("%g %g %g %d\n",nLocal[7].x,nLocal[7].y,nLocal[7].z,nLocal[7].pt );
       }
-      //~ va=gsl_rng_uniform(r)*ang_var;
       va = (2 * gsl_rng_uniform(r[thread]) - 1) * ang_var;
-      // Create a rotation candidate
       rotation_type = gsl_rng_uniform(r[thread]);
       {
         if (rotation_type < 0.333) {
@@ -179,15 +160,12 @@ void EvolveN::Monte_Carlo_Step(float &ang_var, gsl_rng **r) {
         }
       }
 
-      // Old energy calculation
       E_old = geometry->latice_Potential(nLocal);
-      // New energy calculation
       nLocal[0].x = nNew[0];
       nLocal[0].y = nNew[1];
       nLocal[0].z = nNew[2];
       E_new = geometry->latice_Potential(nLocal);
 
-      // test new config
       if (gsl_rng_uniform(r[thread]) < exp(-(E_new - E_old) / T)) {
         nix(i, j, k) = nNew[0];
         niy(i, j, k) = nNew[1];
@@ -197,8 +175,6 @@ void EvolveN::Monte_Carlo_Step(float &ang_var, gsl_rng **r) {
     }
   }
 
-      // printf("- %d %g %d %g\n",acceptance, 1.0*acceptance/vallid,vallid,ang_var);
-  //~   #pragma omp barrier
   if (1.0 * acceptance / vallid < 0.5) {
     ang_var *= 0.99;
     if (ang_var < 0.01)

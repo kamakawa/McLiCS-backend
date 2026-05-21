@@ -238,6 +238,7 @@ __device__ float FG_Surface_Potential_GPU(float ni[3], float s[3], Parameters *p
   float nij=ni[0]*s[0]+ni[1]*s[1]+ni[2]*s[2];
   return +nij*nij;
 }
+
 __device__ float Strong_Anchoring_GPU(float ni[3], float s[3], Parameters *params, float rij[3]){
 
   return 0;
@@ -261,9 +262,9 @@ __device__ float RP_Surface_Potential_GHRL_GPU(float ni[3], float s[3], Paramete
               +(ni[0]*s[2]-ni[2]*s[0])*rij[1]
               +(ni[1]*s[0]-ni[0]*s[1])*rij[2];
     float E1 =((v15*ai*ai)+(v15*aj*aj)-1);
-  //~ if (threadIdx.x==0)printf("%0.3f %0.3f %0.3f %0.3f %0.3f \n", ai, aj, cross, nij,(ai*aj*nij));
   return((E1*(er*pij+el)+em*(ai*aj*nij)-(1/9))+en*pij+es*(nij>0?1:-1)*cross);
 }
+
 __device__ float FG_Surface_Potential_GHRL_GPU(float ni[3], float s[3], Parameters *params, float rij[3]){
   
   const float el=params->ghrl_lambda;
@@ -282,36 +283,9 @@ __device__ float FG_Surface_Potential_GHRL_GPU(float ni[3], float s[3], Paramete
               +(ni[0]*s[2]-ni[2]*s[0])*rij[1]
               +(ni[1]*s[0]-ni[0]*s[1])*rij[2];
     float E1 =((v15*ai*ai)+(v15*aj*aj)-1);
-  //~ if (threadIdx.x==0)printf("%0.3f %0.3f %0.3f %0.3f %0.3f \n", ai, aj, cross, nij,(ai*aj*nij));
   return -((E1*(er*pij+el)+em*(ai*aj*nij)-(1/9))+en*pij+es*(nij>0?1:-1)*cross);
 }
-// __device__ float FG_Surface_Potential_GHRL_GPU(float ni[3], float s[3], parameters *params, float rij[3]){
-//   const float el=params->ghrl_lambda;
-//   const float em=params->ghrl_mu;
-//   const float en=params->ghrl_nu;
-//   const float er=params->ghrl_rho;
-//   const float es=params->ghrl_sigma;
-//   float v15 = 1.5;
-//   float v05 = 0.5;
-//   float mod=sqrtf(fabs(ni[0]*s[0]+ni[1]*s[1]+ni[2]*s[2]));
-//   float nj[3]={ni[0]-s[0]*mod,ni[1]-s[1]*mod,ni[2]-s[2]*mod};
-//   mod=sqrtf(fabs(nj[0]*nj[0]+nj[1]*nj[1]+nj[2]*nj[2]));
-//   nj[0]/=(mod>0?mod:1);
-//   nj[1]/=(mod>0?mod:1);
-//   nj[2]/=(mod>0?mod:1);
-  
-//   float ai=ni[0]*rij[0]+ni[1]*rij[1]+ni[2]*rij[2];
-//   float aj=nj[0]*rij[0]+nj[1]*rij[1]+nj[2]*rij[2];
-//   float nij=ni[0]*nj[0]+ni[1]*nj[1]+ni[2]*nj[2];
-//   float pij=v15*nij*nij-v05;
-//   float cross=(ni[2]*nj[1]-ni[1]*nj[2])*rij[0]
-//               +(ni[0]*nj[2]-ni[2]*nj[0])*rij[1]
-//               +(ni[1]*nj[0]-ni[0]*nj[1])*rij[2];
-  
-//   float E1 =((v15*ai*ai)+(v15*aj*aj)-1);
-//   //~ if (threadIdx.x==0)printf("%0.3f %0.3f %0.3f %0.3f %0.3f \n", ai, aj, cross, nij,(ai*aj*nij));
-//   return((E1*(er*pij+el)+em*(ai*aj*nij)-(1/9))+en*pij+es*(nij>0?1:-1)*cross);
-// }
+
 __device__ float Strong_Anchoring_GHRL_GPU(float ni[3], float s[3], Parameters *params, float rij[3]){
 
   return 0;

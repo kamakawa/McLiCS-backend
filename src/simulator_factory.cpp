@@ -12,9 +12,6 @@
 #include "../include/evolve.cuh"
 #endif
 
-// ---------------------------------------------------------------------------
-// Evolve factory
-// ---------------------------------------------------------------------------
 Evolve* SimulatorFactory::createEvolve(float* ni, int* pt, Parameters* params) {
     const char* evol = params->evol;
 
@@ -49,9 +46,6 @@ Evolve* SimulatorFactory::createEvolve(float* ni, int* pt, Parameters* params) {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Geometry factory
-// ---------------------------------------------------------------------------
 Geometry* SimulatorFactory::createGeometry(int* pt, Parameters* params) {
     const char* geo = params->geometry;
 
@@ -65,9 +59,6 @@ Geometry* SimulatorFactory::createGeometry(int* pt, Parameters* params) {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Boundary conditions
-// ---------------------------------------------------------------------------
 void SimulatorFactory::setupBoundaries(Parameters& p) {
     auto resolve = [](const char* name, const char* axis) -> int(*)(int&, int) {
         if      (strcasecmp(name, "free")     == 0) return &Free_Boundary;
@@ -83,9 +74,6 @@ void SimulatorFactory::setupBoundaries(Parameters& p) {
     p.ZBound = resolve(p.ZBoundtype, "Z");
 }
 
-// ---------------------------------------------------------------------------
-// Bulk potential
-// ---------------------------------------------------------------------------
 void SimulatorFactory::setupPotential(Parameters& p, Evolve* ev) {
     const char* pot = p.potential;
 

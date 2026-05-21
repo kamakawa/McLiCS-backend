@@ -13,7 +13,6 @@
 Homeotropic_Anchoring::Homeotropic_Anchoring(Parameters *params, int id) {
   this->id = id;
   this->params = params;
-  // Asserting anchoring energy is set and getting its value:
   printf("  Surface %d    : %s\n", id, name);
   try {
     W = params->W.at(id);
@@ -34,7 +33,6 @@ float Homeotropic_Anchoring::surface_potential(float ni[3], float s[3]) {
 Homeotropic_Anchoring_GHRL::Homeotropic_Anchoring_GHRL(Parameters *params, int id) {
   this->id = id;
   this->params = params;
-  // Asserting anchoring energy is set and getting its value:
   printf("  Surface %d    : %s\n", id, name);
   try {
     W = params->W.at(id);
@@ -61,6 +59,5 @@ float Homeotropic_Anchoring_GHRL::surface_potential(float ni[3], float s[3]) {
   float cross = (ni[2] * s[1] - ni[1] * s[2]) * s[0] + (ni[0] * s[2] - ni[2] * s[0]) * s[1] + (ni[1] * s[0] - ni[0] * s[1]) * s[2];
 
   float E1 = ((v15 * ai * ai) + (v15 * aj * aj) - 1);
-  //~ if (threadIdx.x==0)printf("%0.3f %0.3f %0.3f %0.3f %0.3f \n", ai, aj, cross, nij,(ai*aj*nij));
   return W * ((E1 * (er * pij + el) + em * (ai * aj * nij) - (1 / 9)) + en * pij + es * (nij > 0 ? 1 : -1) * cross);
 }

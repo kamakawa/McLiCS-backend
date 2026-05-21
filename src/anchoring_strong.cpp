@@ -13,7 +13,6 @@
 Strong_Anchoring::Strong_Anchoring(Parameters *params, int id) {
   this->id = id;
   this->params = params;
-  // Asserting anchoring energy is set and getting its value:
   printf("  Surface %d    : %s\n", id, name);
   try {
     W = params->W.at(id);
@@ -48,7 +47,6 @@ float Strong_Anchoring::surface_potential(float ni[3], float s[3]) {
 Strong_Anchoring_GHRL::Strong_Anchoring_GHRL(Parameters *params, int id) {
   this->id = id;
   this->params = params;
-  // Asserting anchoring energy is set and getting its value:
   printf("  Surface %d    : %s\n", id, name);
   try {
     W = params->W.at(id);

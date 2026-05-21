@@ -27,7 +27,7 @@ static void print_separator(const char *seg = "─", int count = 60) {
 
 static void print_banner() {
   print_separator("═");
-  printf("  McLiCS v%s  —  Monte Carlo Liquid Crystal Simulator\n", MCLICS_VERSION);
+  printf("  MClist —  Monte Carlo Liquid Crystal Simulator\n");
   print_separator("═");
   printf("\n");
 }
