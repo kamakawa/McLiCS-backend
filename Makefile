@@ -3,9 +3,6 @@
 #  Targets:
 #    make          → GPU binary (mc_sim),  requires nvcc
 #    make cpu      → CPU binary (mc_sim_cpu)
-#    make all      → both binaries (if nvcc is available)
-#    make debug    → GPU binary with debug symbols
-#    make debug_cpu→ CPU binary with debug symbols
 #    make clean    → remove build artefacts and binaries
 # ===========================================================================
 
@@ -38,7 +35,6 @@ endif
 
 # ---------------------------------------------------------------------------
 # Source lists
-# simulator.cpp is the single unified simulator (replaces simulatorGPU.cpp)
 # ---------------------------------------------------------------------------
 ALL_CPPS := $(wildcard src/*.cpp)
 

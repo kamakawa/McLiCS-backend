@@ -1,48 +1,31 @@
-# ══════════════════════════════════════════════════
-#  Teste 3: Sphere + Thermal + GHRL
-#  Geometria esférica com confinamento radial.
-#  Potencial GHRL com constantes elásticas iguais (isotropia elástica).
-#  Ancoragem homeotrófica: moléculas perpendiculares à superfície.
-#  Objetivo: verificar confinamento esférico e potencial GHRL.
-#  Esperado: S mais baixo que no bulk pelo confinamento,
-#            e presença de defeitos topológicos no interior.
-# ══════════════════════════════════════════════════
-
-# Grade (esfera inscrita na grade cúbica)
 Nx  20
 Ny  20
 Nz  20
+Nk 1
 
 # Dispositivo
 # device  gpu
 
-# Potencial GHRL com constantes elásticas iguais
 potential  ghrl
 k11  1.0
 k22  1.0
 k33  1.0
 p0   0
 
-# Modo de evolução: varredura de temperatura
 evol  thermal
 Ti    1.1
 Tf    0.5
 dT    -0.05
 
-# Passos Monte Carlo (mais MCT para equilibrar o confinamento)
 MCT  8000
 MCS  2000
 
-# Condição inicial aleatória
 ic  random
 
-# Geometria esférica (zbound e xbound free são forçados automaticamente)
 geometry  sphere
 xbound    free
 ybound    free
 zbound    free
 
-# Ancoragem homeotrófica: moléculas perpendiculares à superfície esférica
-# theta_s=0 → aponta radialmente para fora
 anchoring_type  0  homeotropic
 W               0  2.0
