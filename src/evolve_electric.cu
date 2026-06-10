@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <math.h>
+#include <strings.h>
 #include <gsl/gsl_rng.h>
 #include <omp.h>
 #include "../include/define.h"
@@ -72,7 +73,11 @@ int electricEvolveNGPU::run(){
   sprintf(fname,"po.dat");
   int sign=-params->elecdE/fabs(params->elecdE);
   FILE *po_file=fopen(fname,"a");
-  fprintf(po_file,"T S varS E varE\n"); fflush(po_file);
+  if (strcasecmp(params->potential, "pear") == 0)
+    fprintf(po_file,"T S varS E varE P\n");
+  else
+    fprintf(po_file,"T S varS E varE\n");
+  fflush(po_file);
   printf("Starting electric variation, for nematic molecules, from %g to %g with step os size %g\n", params->elecEi, params->elecEf, params->elecdE);
   printf("MCT=%d MCS=%d\n",params->MCT,params->MCS); fflush(stdout);
   cudaMemcpy(d_T, &params->T, sizeof(float), cudaMemcpyHostToDevice);
@@ -101,7 +106,14 @@ int electricEvolveNGPU::run(){
     S2/=params->MCS;
     sprintf(fname,"director_field_%d.csv",(int)(1000*(params->elecE+1e-5)));
     print_n(fname,ni,*params,pt);
-    fprintf(po_file,"%g %g %g %g %g\n",params->elecE,S1, S2-S1*S1, E, (E2-E*E)); fflush(po_file);
+    if (strcasecmp(params->potential, "pear") == 0) {
+      float P = Polarization(ni, *params);
+      fprintf(po_file,"%g %g %g %g %g %g\n",params->elecE,S1, S2-S1*S1, E, (E2-E*E), P);
+      //printf("  E=%g  S=%g  E_energy=%g  P=%g\n",params->elecE,S1,E,P);
+    } else {
+      fprintf(po_file,"%g %g %g %g %g\n",params->elecE,S1, S2-S1*S1, E, (E2-E*E));
+    }
+    fflush(po_file);
   }
   
   fclose(po_file);

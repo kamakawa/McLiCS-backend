@@ -1,0 +1,49 @@
+# ─── Parâmetros de teste — potencial Pear (Selinger splay-bend) ───────────────
+# O potencial pear quebra simetria cabeça-cauda, gerando polarização P ≠ 0.
+# Energia: -A*(n_i·n_j)^2 - B1*(n_i·n_j) - (C/4)*polar_splay
+#
+#   A  → força nematic (alinhamento quadrupolar, análogo ao LL)
+#   B1 → assimetria polar (campo molecular que favorece P ≠ 0)
+#        B1 = 0 → fase nematic pura (P = 0)
+#        B1 > 0 → favorece fase polar (P > 0)
+#   C  → acoplamento splay-bend polar
+
+# ─── Grade ────────────────────────────────────────────────────────────────────
+Nx 16
+Ny 16
+Nz 16
+
+# ─── Potencial ────────────────────────────────────────────────────────────────
+potential pear
+
+A   1.0     # força do alinhamento nematic
+B1  0.3     # assimetria polar — aumente para forçar P mais alto
+C   0.3     # acoplamento splay-bend
+
+# ─── Monte Carlo ──────────────────────────────────────────────────────────────
+evol thermal
+
+Ti   1.2    # temperatura inicial (fase isotrópica)
+Tf   0.2    # temperatura final   (fase polar ordenada)
+dT  -0.05   # passo de temperatura
+
+MCT  5000   # passos de termalização por temperatura
+MCS  1000   # passos de medida por temperatura
+
+fn   1      # número de snapshots CSV gerados
+
+# ─── Condição inicial ─────────────────────────────────────────────────────────
+ic random   # começa desordenado para ver a transição
+
+# ─── Geometria ────────────────────────────────────────────────────────────────
+geometry bulk
+
+xbound periodic
+ybound periodic
+zbound periodic
+
+# ─── Constantes elásticas (não usadas pelo pear, mas exigidas pelo parser) ───
+k11 1
+k22 1
+k33 1
+p0  0

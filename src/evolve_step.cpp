@@ -1,5 +1,6 @@
 #include <gsl/gsl_rng.h>
 #include <math.h>
+#include <strings.h>
 #include <omp.h>
 
 #include <iostream>
@@ -42,7 +43,10 @@ int stepEvolveN::run() {
 
   sprintf(fname, "po.dat");
   FILE *po_file = fopen(fname, "a");
-  fprintf(po_file, "ii S varS E varE\n");
+  if (strcasecmp(params->potential, "pear") == 0)
+    fprintf(po_file, "ii S varS E varE P\n");
+  else
+    fprintf(po_file, "ii S varS E varE\n");
   fflush(po_file);
   params->T = params->Ti;
   printf("Step relaxation, for nematic molecules, using MCT=%d MCS=%d and fn=%d using %d threads\n",
@@ -72,7 +76,13 @@ int stepEvolveN::run() {
     S2 /= params->MCS;
     sprintf(fname, "director_field_%d.csv", ii);
     print_n(fname, ni, *params, pt);
-    fprintf(po_file, "%d %g %g %g %g\n", ii, S1, S2 - S1 * S1, E, (E2 - E * E));
+    if (strcasecmp(params->potential, "pear") == 0) {
+      float P = Polarization(ni, *params);
+      fprintf(po_file, "%d %g %g %g %g %g\n", ii, S1, S2 - S1 * S1, E, (E2 - E * E), P);
+      //printf("  ii=%d  S=%g  E=%g  P=%g\n", ii, S1, E, P);
+    } else {
+      fprintf(po_file, "%d %g %g %g %g\n", ii, S1, S2 - S1 * S1, E, (E2 - E * E));
+    }
     fflush(po_file);
   }
 

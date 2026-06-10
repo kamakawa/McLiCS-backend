@@ -57,22 +57,35 @@ static void printSimulationSummary(const Parameters* params) {
   printf("  SIMULATION COMPLETE\n");
   print_separator("═");
 
+  bool is_pear = (strcasecmp(params->potential, "pear") == 0);
+
   FILE* po = std::fopen("po.dat", "r");
   if (po) {
-    double sumS = 0, sumE = 0;
+    double sumS = 0, sumE = 0, sumP = 0;
     double maxS = -1e9, minS = 1e9;
     double maxE = -1e9, minE = 1e9;
+    double maxP = -1e9, minP = 1e9;
     int count = 0;
     char line[256];
 
     if (std::fgets(line, sizeof(line), po) != nullptr) {
-      double T, S, varS, E, varE;
+      double T, S, varS, E, varE, P;
       while (std::fgets(line, sizeof(line), po) != nullptr) {
-        if (std::sscanf(line, "%lf %lf %lf %lf %lf", &T, &S, &varS, &E, &varE) == 5) {
-          sumS += S;  sumE += E;
-          if (S > maxS) maxS = S;  if (S < minS) minS = S;
-          if (E > maxE) maxE = E;  if (E < minE) minE = E;
-          count++;
+        if (is_pear) {
+          if (std::sscanf(line, "%lf %lf %lf %lf %lf %lf", &T, &S, &varS, &E, &varE, &P) == 6) {
+            sumS += S;  sumE += E;  sumP += P;
+            if (S > maxS) maxS = S;  if (S < minS) minS = S;
+            if (E > maxE) maxE = E;  if (E < minE) minE = E;
+            if (P > maxP) maxP = P;  if (P < minP) minP = P;
+            count++;
+          }
+        } else {
+          if (std::sscanf(line, "%lf %lf %lf %lf %lf", &T, &S, &varS, &E, &varE) == 5) {
+            sumS += S;  sumE += E;
+            if (S > maxS) maxS = S;  if (S < minS) minS = S;
+            if (E > maxE) maxE = E;  if (E < minE) minE = E;
+            count++;
+          }
         }
       }
     }
@@ -83,6 +96,9 @@ static void printSimulationSummary(const Parameters* params) {
              "Order parameter S:", sumS/count, maxS, minS);
       printf("  %-28s  mean=%8.4f   max=%8.4f   min=%8.4f\n",
              "Energy E:", sumE/count, maxE, minE);
+      if (is_pear)
+        printf("  %-28s  mean=%8.4f   max=%8.4f   min=%8.4f\n",
+               "Polarization P:", sumP/count, maxP, minP);
       printf("  %-28s  %d\n", "Saved steps:", count);
     } else {
       printf("  [!] No valid data found in po.dat\n");

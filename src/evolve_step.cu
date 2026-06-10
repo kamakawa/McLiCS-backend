@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <math.h>
+#include <strings.h>
 #include <gsl/gsl_rng.h>
 #include <omp.h>
 #include "../include/define.h"
@@ -72,7 +73,11 @@ int stepEvolveNGPU::run(){
   
   sprintf(fname,"po.dat");
   FILE *po_file=fopen(fname,"a");
-  fprintf(po_file,"ii S varS E varE\n"); fflush(po_file);
+  if (strcasecmp(params->potential, "pear") == 0)
+    fprintf(po_file,"ii S varS E varE P\n");
+  else
+    fprintf(po_file,"ii S varS E varE\n");
+  fflush(po_file);
   params->T=params->Ti; cudaMemcpy(d_T, &params->T, sizeof(float), cudaMemcpyHostToDevice);
   printf("Step relaxation, for nematic molecules, using MCT=%d MCS=%d and fn=%d\n",
   params->MCT,params->MCS,params->fn); fflush(stdout);
@@ -100,7 +105,14 @@ int stepEvolveNGPU::run(){
     cudaMemcpy( ni, d_ni, 3*Nt*sizeof(float), cudaMemcpyDeviceToHost);
     sprintf(fname,"director_field_%d.csv",ii);
     print_n(fname,ni,*params,pt);
-    fprintf(po_file,"%d %g %g %g %g\n",ii,S1, S2-S1*S1, E, (E2-E*E)); fflush(po_file);
+    if (strcasecmp(params->potential, "pear") == 0) {
+      float P = Polarization(ni, *params);
+      fprintf(po_file,"%d %g %g %g %g %g\n",ii,S1, S2-S1*S1, E, (E2-E*E), P);
+      //printf("  ii=%d  S=%g  E=%g  P=%g\n",ii,S1,E,P);
+    } else {
+      fprintf(po_file,"%d %g %g %g %g\n",ii,S1, S2-S1*S1, E, (E2-E*E));
+    }
+    fflush(po_file);
   }
   fclose(po_file);
   gsl_rng_free (rng);

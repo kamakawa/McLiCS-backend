@@ -1,5 +1,6 @@
 #include <gsl/gsl_rng.h>
 #include <math.h>
+#include <strings.h>
 #include <omp.h>
 
 #include <iostream>
@@ -44,7 +45,10 @@ int electricEvolveN::run() {
   sprintf(fname, "po.dat");
   int sign = -params->elecdE / fabs(params->elecdE);
   FILE *po_file = fopen(fname, "a");
-  fprintf(po_file, "T S varS E varE\n");
+  if (strcasecmp(params->potential, "pear") == 0)
+    fprintf(po_file, "T S varS E varE P\n");
+  else
+    fprintf(po_file, "T S varS E varE\n");
   fflush(po_file);
   params->T = params->Ti;
   printf("Starting electric variation, for nematic molecules, from %g to %g with step os size %g\n", params->elecEi, params->elecEf, params->elecdE);
@@ -76,7 +80,13 @@ int electricEvolveN::run() {
     S2 /= params->MCS;
     sprintf(fname, "director_field_%d.csv", (int)(100 * (params->elecE + 1e-7)));
     print_n(fname, ni, *params, pt);
-    fprintf(po_file, "%g %g %g %g %g\n", params->elecE, S1, S2 - S1 * S1, E, (E2 - E * E));
+    if (strcasecmp(params->potential, "pear") == 0) {
+      float P = Polarization(ni, *params);
+      fprintf(po_file, "%g %g %g %g %g %g\n", params->elecE, S1, S2 - S1 * S1, E, (E2 - E * E), P);
+      //printf("  E=%g  S=%g  E_energy=%g  P=%g\n", params->elecE, S1, E, P);
+    } else {
+      fprintf(po_file, "%g %g %g %g %g\n", params->elecE, S1, S2 - S1 * S1, E, (E2 - E * E));
+    }
     fflush(po_file);
   }
 

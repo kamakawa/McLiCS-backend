@@ -1,5 +1,6 @@
 #include <gsl/gsl_rng.h>
 #include <math.h>
+#include <strings.h>
 #include <omp.h>
 
 #include <iostream>
@@ -44,7 +45,10 @@ int thermalEvolveN::run() {
   sprintf(fname, "po.dat");
   int sign = -params->dT / fabs(params->dT);
   FILE *po_file = fopen(fname, "a");
-  fprintf(po_file, "T S varS E varE\n");
+  if (strcasecmp(params->potential, "pear") == 0)
+    fprintf(po_file, "T S varS E varE P\n");
+  else
+    fprintf(po_file, "T S varS E varE\n");
   fflush(po_file);
   printf("Starting thermal variation, for nematic molecules, from %g to %g with step os size %g\n",
          params->Ti, params->Tf, params->dT);
@@ -76,7 +80,13 @@ int thermalEvolveN::run() {
     S2 /= params->MCS;
     sprintf(fname, "director_field_%d.csv", (int)(100 * (params->T + 1e-7)));
     print_n(fname, ni, *params, pt);
-    fprintf(po_file, "%g %g %g %g %g\n", params->T, S1, S2 - S1 * S1, E, (E2 - E * E));
+    if (strcasecmp(params->potential, "pear") == 0) {
+      float P = Polarization(ni, *params);
+      fprintf(po_file, "%g %g %g %g %g %g\n", params->T, S1, S2 - S1 * S1, E, (E2 - E * E), P);
+      //printf("  T=%g  S=%g  E=%g  P=%g\n", params->T, S1, E, P);
+    } else {
+      fprintf(po_file, "%g %g %g %g %g\n", params->T, S1, S2 - S1 * S1, E, (E2 - E * E));
+    }
     fflush(po_file);
   }
 
