@@ -9,6 +9,7 @@
 #include "../include/geometry.h"
 #include "../include/ic.h"
 #include "../include/io.h"
+#include "../include/parameter_order.h"
 #include "../include/potential.h"
 #include "../include/simulator_factory.h"
 
@@ -69,19 +70,23 @@ int simulator::print_n(const char* fname, const Parameters* p) const {
         return 1;
     }
 
-    std::fprintf(output, "x,y,z,nx,ny,nz,s,pt\n");
+    std::fprintf(output, "x,y,z,nx,ny,nz,S,pt\n");
     for (int k = 0; k < p->Nz; k++) {
         for (int j = 0; j < p->Ny; j++) {
             for (int i = 0; i < p->Nx; i++) {
-                std::fprintf(output, "%d,%d,%d,%g,%g,%g,1,%d\n",
+                float S = pti(i, j, k)
+                    ? lattice_order_parameter(ni, pt, i, j, k, *p)
+                    : 1.0f;
+                std::fprintf(output, "%d,%d,%d,%g,%g,%g,%g,%d\n",
                              i, j, k,
                              nix(i, j, k), niy(i, j, k), niz(i, j, k),
+                             S,
                              pti(i, j, k));
             }
         }
     }
 
     std::fclose(output);
-    std::printf("Snapshot saved in %s\n", fname);
+    std::printf("  Snapshot -> %s\n", fname);
     return 0;
 }
