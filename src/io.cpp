@@ -45,7 +45,12 @@ int print_n(char *fname, float *ni, Parameters params, int *pt) {
   for (int k = 0; k < params.Nz; k++) {
     for (int j = 0; j < params.Ny; j++) {
       for (int i = 0; i < params.Nx; i++) {
-        S = pti(i, j, k) ? lattice_order_parameter(ni, pt, i, j, k, params) : 1;
+        // pt == 0 means the site is outside the simulated geometry (no
+        // material there) - there is no order parameter to report. NAN
+        // is used instead of a numeric placeholder like 0 or 1, since
+        // both of those are valid physical S values and would silently
+        // masquerade as real data in downstream analysis.
+        S = pti(i, j, k) ? lattice_order_parameter(ni, pt, i, j, k, params) : NAN;
         fprintf(output, "%d,%d,%d,%g,%g,%g,%g,%d\n", i, j, k,
                 nix(i, j, k), niy(i, j, k), niz(i, j, k), S, pti(i, j, k));
       }

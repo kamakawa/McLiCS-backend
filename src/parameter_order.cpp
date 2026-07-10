@@ -65,7 +65,7 @@ float lattice_order_parameter(float *ni, int *pt, int i, int j, int k, Parameter
   static int Nz = params.Nz;
   int points = 0;
   float Q[9];
-  for (int i = 0; i < 5; i++) Q[i] = 0;
+  for (int i = 0; i < 9; i++) Q[i] = 0;
 
   for (int di = -1; di < 2; di++) {
     for (int dj = -1; dj < 2; dj++) {
