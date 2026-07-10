@@ -44,15 +44,6 @@ struct Parameters {
   float ghrl_nu = 1;
   float ghrl_sigma = 0;
 
-  // Device selection: true = GPU (requires CUDA build), false = CPU.
-  // Default: GPU when compiled with CUDA (-DCUDA__), CPU otherwise.
-  // Override via 'device gpu/cpu' in the parameter file, or --gpu / --cpu on the CLI.
-#ifdef CUDA__
-  bool use_gpu = true;
-#else
-  bool use_gpu = false;
-#endif
-
   //MC Variables
   char evol[20] = "thermal";
   int MCS = 1e2;
@@ -71,7 +62,7 @@ struct Parameters {
   float k33 = 1;
   float p0 = 0;
 
-  //NeighbourHood — only nearest neighbours (nk=1) are supported
+  //NeighbourHood — only nearest neighbours (nk = 1) are supported
   int neighbourKind = 1;
 
   //Electric Field Variables

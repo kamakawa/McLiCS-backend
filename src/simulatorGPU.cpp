@@ -4,8 +4,8 @@
 #include <iostream>
 
 #include "../include/define.h"
+#include "../include/evolve.cuh"
 #include "../include/evolve.h"
-//~ #include "../include/evolve.cuh"
 #include "../include/ic.h"
 #include "../include/io.h"
 #include "../include/monte_carlo.h"
@@ -22,6 +22,7 @@ simulator::~simulator() {
 }
 
 void simulator::Setup_simmulation(Parameters &params) {
+
   int Nn = 3 * params.Nx * params.Ny * params.Nz;
   ni = (float *)calloc(Nn, sizeof(float));
   pt = (int *)calloc(Nn, sizeof(int));
@@ -34,8 +35,16 @@ void simulator::Setup_simmulation(Parameters &params) {
     evolve = new quenchEvolveN(ni, pt, &params);
   } else if (strcasecmp(params.evol, "electric") == 0) {
     evolve = new electricEvolveN(ni, pt, &params);
+  } else if (strcasecmp(params.evol, "thermalGPU") == 0) {
+    evolve = new thermalEvolveNGPU(ni, pt, &params);
+  } else if (strcasecmp(params.evol, "stepGPU") == 0) {
+    evolve = new stepEvolveNGPU(ni, pt, &params);
+  } else if (strcasecmp(params.evol, "quenchGPU") == 0) {
+    evolve = new quenchEvolveNGPU(ni, pt, &params);
+  } else if (strcasecmp(params.evol, "electricGPU") == 0) {
+    evolve = new electricEvolveNGPU(ni, pt, &params);
   } else {
-    fprintf(stderr, "  [ERROR] Evol mode '%s' not implemented. Options: thermal | step | quench | electric\n", params.evol);
+    fprintf(stderr, "  [ERROR] Evol mode '%s' not implemented. Options: thermal | step | quench | electric (add GPU suffix for GPU runs)\n", params.evol);
     exit(2);
   }
 
@@ -78,7 +87,6 @@ void simulator::Setup_simmulation(Parameters &params) {
     fprintf(stderr, "  [ERROR] Z boundary '%s' not implemented. Options: free | periodic\n", params.ZBoundtype);
     exit(2);
   }
-
   evolve->geometry->Boundary_Init(&params);
   evolve->check_Points(pt, params);
   apply_Initial_Condidions(ni, pt, params);

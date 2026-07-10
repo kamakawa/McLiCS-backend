@@ -15,15 +15,11 @@
 
 class Geometry {
  public:
-  explicit Geometry(Parameters *params);
-  virtual ~Geometry() = default;
-
+  Geometry(Parameters *params);
   int Nx, Ny, Nz;
   std::vector<class Anchoring *> surfaces;
   int nSurfaces;
   float newman_neighbours(const nni fullni[]);
-  float second_nerghbours(const nni fullni[]);
-  float third_nerghbours(const nni fullni[]);
   void Boundary_Init(Parameters *params);
   virtual int *set_point_type_normals(int *pt, Parameters *params) = 0;
   virtual float latice_Potential(const nni ni[7]) = 0;

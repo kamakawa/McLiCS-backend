@@ -83,7 +83,6 @@ int electricEvolveN::run() {
     if (strcasecmp(params->potential, "pear") == 0) {
       float P = Polarization(ni, *params);
       fprintf(po_file, "%g %g %g %g %g %g\n", params->elecE, S1, S2 - S1 * S1, E, (E2 - E * E), P);
-      //printf("  E=%g  S=%g  E_energy=%g  P=%g\n", params->elecE, S1, E, P);
     } else {
       fprintf(po_file, "%g %g %g %g %g\n", params->elecE, S1, S2 - S1 * S1, E, (E2 - E * E));
     }

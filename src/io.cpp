@@ -14,22 +14,23 @@
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-static void print_separator(const char *seg = "─", int count = 60) {
+static void print_separator(const char *seg = "-", int count = 60) {
   for (int i = 0; i < count; i++) fputs(seg, stdout);
   putchar('\n');
 }
 
 static void print_header(const char *title, int count = 60) {
-  print_separator("─", count);
+  print_separator("-", count);
   int titleLen = (int)strlen(title);
   int pad = (count - titleLen - 2) / 2;
+  if (pad < 0) pad = 0;
   printf("%*s %s %*s\n", pad, "", title, pad, "");
-  print_separator("─", count);
+  print_separator("-", count);
 }
 
 // ─── print_n ────────────────────────────────────────────────────────────────
 
-int print_n(const char *fname, float *ni, Parameters params, int *pt) {
+int print_n(char *fname, float *ni, Parameters params, int *pt) {
   int Nx = params.Nx;
   int Ny = params.Ny;
   int Nz = params.Nz;
@@ -50,20 +51,17 @@ int print_n(const char *fname, float *ni, Parameters params, int *pt) {
       }
     }
   }
-  printf("  Snapshot → %s\n", fname);
+  printf("  Snapshot -> %s\n", fname);
   fflush(stdout);
   fclose(output);
   return 0;
 }
-
-// ─── read_input_file ────────────────────────────────────────────────────────
-
-Parameters read_input_file(const char *fname) {
+Parameters read_input_file(char *fname) {
   Parameters input_params;
   std::ifstream input_file;
   int nn;
   if (fname == NULL) {
-    printf("  [!] No file specified — using default parameter values.\n");
+    printf("  [!] No parameter file specified - using default parameter values.\n\n");
     return input_params;
   } else {
     input_file.open(fname);
@@ -71,7 +69,7 @@ Parameters read_input_file(const char *fname) {
       perror(fname);
       exit(5);
     }
-    printf("  Parameter file: %s\n\n", fname);
+    printf("  Parameter file : %s\n\n", fname);
   }
   char parser[200];
   char *garbage = (char *)malloc(400);
@@ -134,18 +132,6 @@ Parameters read_input_file(const char *fname) {
     } else if (strcasecmp(parser, "evol")*strcasecmp(parser, "mode") == 0) {
       input_file >> input_params.evol;
       input_file.getline(garbage, 400);
-    } else if (strcasecmp(parser, "device") == 0) {
-      char dev[20];
-      input_file >> dev;
-      input_file.getline(garbage, 400);
-      if (strcasecmp(dev, "gpu") == 0 || strcasecmp(dev, "cuda") == 0)
-        input_params.use_gpu = true;
-      else if (strcasecmp(dev, "cpu") == 0)
-        input_params.use_gpu = false;
-      else {
-        fprintf(stderr, "  [!] Unknown device '%s' — defaulting to CPU.\n", dev);
-        input_params.use_gpu = false;
-      }
     } else if (strcasecmp(parser, "k11") == 0) {
       input_file >> input_params.k11;
       input_file.getline(garbage, 400);
@@ -240,29 +226,26 @@ Parameters read_input_file(const char *fname) {
 
   return input_params;
 }
-
 // ─── print_parameters ───────────────────────────────────────────────────────
 
 void print_parameters(Parameters params) {
   print_header("SIMULATION PARAMETERS");
-  printf("  %-20s %dx%dx%d\n",   "Grid:",     params.Nx, params.Ny, params.Nz);
-  printf("  %-20s %s\n",         "Device:",   params.use_gpu ? "GPU (CUDA)" : "CPU (OpenMP)");
-  printf("  %-20s %s\n",         "Geometry:", params.geometry);
-  printf("  %-20s %s\n",         "Potential:",params.potential);
-  printf("  %-20s %s\n",         "Mode:",     params.evol);
-  printf("  %-20s %d steps\n",   "MCS:",      params.MCS);
-  printf("  %-20s %d steps\n",   "MCT:",      params.MCT);
+  printf("  %-20s %dx%dx%d\n",  "Grid:",      params.Nx, params.Ny, params.Nz);
+  printf("  %-20s %s\n",        "Geometry:",  params.geometry);
+  printf("  %-20s %s\n",        "Potential:", params.potential);
+  printf("  %-20s %s\n",        "Mode:",      params.evol);
+  printf("  %-20s %d steps\n",  "MCS:",       params.MCS);
+  printf("  %-20s %d steps\n",  "MCT:",       params.MCT);
   if (strcasecmp(params.ic, "ic_file") == 0)
-    printf("  %-20s %s\n",       "IC file:",  params.ic_file);
+    printf("  %-20s %s\n",      "IC file:",   params.ic_file);
   if (params.elecA) {
     printf("\n  Electric Field\n");
-    printf("  %-20s (%g, %g, %g)\n", "Direction:", params.elecX, params.elecY, params.elecZ);
+    printf("  %-20s (%g, %g, %g)\n", "Direction:",  params.elecX, params.elecY, params.elecZ);
     printf("  %-20s %g\n",           "Anisotropy:", params.elecA);
   }
   print_separator();
   printf("\n");
 }
-
 // ─── setGHRL ────────────────────────────────────────────────────────────────
 
 void setGHRL(Parameters &params) {
@@ -294,9 +277,11 @@ void setGHRL(Parameters &params) {
 
 // ─── check_error_bits ───────────────────────────────────────────────────────
 
-void check_error_bits(std::ifstream *f, const char *parser) {
+void check_error_bits(std::ifstream *f, char *parser) {
   if (f->eof()) {
-    // EOF after getline is normal — not an error condition.
+    // EOF after getline() is normal, not an error condition: in case there is
+    // data between the last delimiter and EOF, getline() extracts it and
+    // sets the eofbit.
     return;
   }
   if (f->fail()) {

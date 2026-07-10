@@ -1,0 +1,214 @@
+#include <iostream>
+#include <string>
+#include <string.h>
+#include <gsl/gsl_rng.h>
+#include <math.h>
+#include <vector>
+#include "../include/anchoring.h"
+#include "../include/geometry.h"
+#include "../include/parameters.h"
+#include "../include/potential.h"
+
+#include <map>
+
+__device__ float Bulk_latice_Potential_GPU(const nni fullni[8], parameters *params){
+    
+    float rij[3];
+    float E=0;
+    float ni[3]={fullni[0].x,fullni[0].y,fullni[0].z};
+    
+    if(fullni[1].pt) {
+      float nj[3]={fullni[1].x,fullni[1].y,fullni[1].z};
+      rij[0]=1; rij[1]=0; rij[2]=0;
+      E+= bulk_potentialGPU(ni,nj,params,rij);
+    }
+    
+    if(fullni[2].pt) {
+      float nj[3]={fullni[2].x,fullni[2].y,fullni[2].z};
+      rij[0]=-1; rij[1]=0; rij[2]=0;
+      E+= bulk_potentialGPU(ni,nj,params,rij);
+    }
+    
+    if(fullni[3].pt) {
+      float nj[3]={fullni[3].x,fullni[3].y,fullni[3].z};
+      rij[0]=0; rij[1]=1; rij[2]=0;
+      E+= bulk_potentialGPU(ni,nj,params,rij);
+    }
+    
+    if(fullni[4].pt) {
+      float nj[3]={fullni[4].x,fullni[4].y,fullni[4].z};
+      rij[0]=0; rij[1]=-1; rij[2]=0;
+      E+= bulk_potentialGPU(ni,nj,params,rij);
+    }
+    
+    if(fullni[5].pt) {
+      float nj[3]={fullni[5].x,fullni[5].y,fullni[5].z};
+      rij[0]=0; rij[1]=0; rij[2]=1;
+      E+= bulk_potentialGPU(ni,nj,params,rij);
+    }
+    
+    if(fullni[6].pt) {
+      float nj[3]={fullni[6].x,fullni[6].y,fullni[6].z};
+      rij[0]=0; rij[1]=0; rij[2]=-1;
+      E+= bulk_potentialGPU(ni,nj,params,rij);
+    }
+    
+  return E;
+}
+
+__device__ float Slab_latice_Potential_GPU(const nni fullni[8], parameters *params){
+    float rij[3];
+    float E=0;
+    
+    float ni[3]={fullni[0].x,fullni[0].y,fullni[0].z};
+    
+    if(fullni[1].pt) {
+      float nj[3]={fullni[1].x,fullni[1].y,fullni[1].z};
+      rij[0]=1; rij[1]=0; rij[2]=0;
+      E+= bulk_potentialGPU(ni,nj,params,rij);
+    }
+    
+    if(fullni[2].pt) {
+      float nj[3]={fullni[2].x,fullni[2].y,fullni[2].z};
+      rij[0]=-1; rij[1]=0; rij[2]=0;
+      E+= bulk_potentialGPU(ni,nj,params,rij);
+    }
+    
+    if(fullni[3].pt) {
+      float nj[3]={fullni[3].x,fullni[3].y,fullni[3].z};
+      rij[0]=0; rij[1]=1; rij[2]=0;
+      E+= bulk_potentialGPU(ni,nj,params,rij);
+    }
+    
+    if(fullni[4].pt) {
+      float nj[3]={fullni[4].x,fullni[4].y,fullni[4].z};
+      rij[0]=0; rij[1]=-1; rij[2]=0;
+      E+= bulk_potentialGPU(ni,nj,params,rij);
+    }
+    
+    if(fullni[5].pt) {
+      float s[3]={0,0,1};
+      float nj[3]={fullni[5].x,fullni[5].y,fullni[5].z};
+      rij[0]=0; rij[1]=0; rij[2]=1;
+      E+= (fullni[0].pt==2)
+      ?d_Surface_Potential_GPU[0](ni,s)
+      :bulk_potentialGPU(ni,nj,params,rij);
+    }
+    
+    if(fullni[6].pt) {
+      float s[3]={0,0,-1};
+      float nj[3]={fullni[6].x,fullni[6].y,fullni[6].z};
+      rij[0]=0; rij[1]=0; rij[2]=-1;
+      E+= (fullni[0].pt==3)
+      ?d_Surface_Potential_GPU[1](ni,s)
+      :bulk_potentialGPU(ni,nj,params,rij);
+    }
+    
+  return E;
+}
+
+__device__ float Custom_latice_Potential_GPU(const nni fullni[8], parameters *params){
+    float rij[3];
+    float E=0;
+    
+    float ni[3]={fullni[0].x,fullni[0].y,fullni[0].z};
+    
+    if(fullni[1].pt) {
+      float nj[3]={fullni[1].x,fullni[1].y,fullni[1].z};
+      rij[0]=1; rij[1]=0; rij[2]=0;
+      E+= bulk_potentialGPU(ni,nj,params,rij);
+    }
+    
+    if(fullni[2].pt) {
+      float nj[3]={fullni[2].x,fullni[2].y,fullni[2].z};
+      rij[0]=-1; rij[1]=0; rij[2]=0;
+      E+= bulk_potentialGPU(ni,nj,params,rij);
+    }
+    
+    if(fullni[3].pt) {
+      float nj[3]={fullni[3].x,fullni[3].y,fullni[3].z};
+      rij[0]=0; rij[1]=1; rij[2]=0;
+      E+= bulk_potentialGPU(ni,nj,params,rij);
+    }
+    
+    if(fullni[4].pt) {
+      float nj[3]={fullni[4].x,fullni[4].y,fullni[4].z};
+      rij[0]=0; rij[1]=-1; rij[2]=0;
+      E+= bulk_potentialGPU(ni,nj,params,rij);
+    }
+    
+    if(fullni[5].pt) {
+      float nj[3]={fullni[5].x,fullni[5].y,fullni[5].z};
+      rij[0]=0; rij[1]=0; rij[2]=1;
+      E+= bulk_potentialGPU(ni,nj,params,rij);
+    }
+    
+    if(fullni[6].pt) {
+      float nj[3]={fullni[6].x,fullni[6].y,fullni[6].z};
+      rij[0]=0; rij[1]=0; rij[2]=-1;
+      E+= bulk_potentialGPU(ni,nj,params,rij);
+    }
+    float s[3]={fullni[7].x,fullni[7].y,fullni[7].z};
+    if (fullni[0].pt>1) E+= d_Surface_Potential_GPU[fullni[0].pt-2](ni,s);
+      
+  return E;
+}
+ 
+
+__device__ float Sphere_latice_Potential_GPU(const nni fullni[8], parameters *params){
+    float rij[3];
+    float E=0;
+    
+    float ni[3]={fullni[0].x,fullni[0].y,fullni[0].z};
+    
+    if(fullni[1].pt) {
+      float nj[3]={fullni[1].x,fullni[1].y,fullni[1].z};
+      rij[0]=1; rij[1]=0; rij[2]=0;
+      E+= bulk_potentialGPU(ni,nj,params,rij);
+    }
+    
+    if(fullni[2].pt) {
+      float nj[3]={fullni[2].x,fullni[2].y,fullni[2].z};
+      rij[0]=-1; rij[1]=0; rij[2]=0;
+      E+= bulk_potentialGPU(ni,nj,params,rij);
+    }
+    
+    if(fullni[3].pt) {
+      float nj[3]={fullni[3].x,fullni[3].y,fullni[3].z};
+      rij[0]=0; rij[1]=1; rij[2]=0;
+      E+= bulk_potentialGPU(ni,nj,params,rij);
+    }
+    
+    if(fullni[4].pt) {
+      float nj[3]={fullni[4].x,fullni[4].y,fullni[4].z};
+      rij[0]=0; rij[1]=-1; rij[2]=0;
+      E+= bulk_potentialGPU(ni,nj,params,rij);
+    }
+    
+    if(fullni[5].pt) {
+      float nj[3]={fullni[5].x,fullni[5].y,fullni[5].z};
+      rij[0]=0; rij[1]=0; rij[2]=1;
+      E+= bulk_potentialGPU(ni,nj,params,rij);
+    }
+    
+    if(fullni[6].pt) {
+      float nj[3]={fullni[6].x,fullni[6].y,fullni[6].z};
+      rij[0]=0; rij[1]=0; rij[2]=-1;
+      E+= bulk_potentialGPU(ni,nj,params,rij);
+    }
+    float s[3]={fullni[7].x,fullni[7].y,fullni[7].z};
+    if (fullni[0].pt>1) E+= d_Surface_Potential_GPU[fullni[0].pt-2](ni,s);
+  return E;
+}
+
+__device__ float Homeotropic_Surface_Potential_GPU(float ni[3], float s[3]){
+  
+  float nij=ni[0]*s[0]+ni[1]*s[1]+ni[2]*s[2];
+  return -nij*nij;
+}
+
+__device__ float FG_Surface_Potential_GPU(float ni[3], float s[3]){
+
+  float nij=ni[0]*s[0]+ni[1]*s[1]+ni[2]*s[2];
+  return +nij*nij;
+}

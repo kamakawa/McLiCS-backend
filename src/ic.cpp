@@ -19,7 +19,7 @@ void apply_Initial_Condidions(float *ni, int *pt, Parameters params) {
   } else if (strcasecmp(params.ic, "cholesteric") == 0) {
     cholesteric_ic(ni, pt, params);
   } else {
-    fprintf(stderr, "initial condition %s not implemented \n", params.ic);
+    fprintf(stderr, "  [ERROR] Initial condition '%s' not implemented. Options: random | homogeneous | ic_file | cholesteric\n", params.ic);
     exit(2);
   }
 }
@@ -33,11 +33,16 @@ void random_ic(float *ni, int *pt, Parameters params) {
   gsl_rng_env_setup();
   rng = gsl_rng_alloc(gsl_rng_taus);
   gsl_rng_set(rng, 1);
-  printf("Random initial conditions\n\n");
+  printf("  Initial condition: random\n\n");
   for (int i = 0; i < params.Nx; i++) {
     for (int j = 0; j < params.Ny; j++) {
       for (int k = 0; k < params.Nz; k++) {
         if (pti(i, j, k)) {
+          //~ float theta=gsl_rng_uniform(rng);
+          //~ float phi=gsl_rng_uniform(rng);
+          //~ nix(i,j,k)=sin(phi*M_PI)*cos(2*theta*M_PI);
+          //~ niy(i,j,k)=sin(phi*M_PI)*sin(2*theta*M_PI);
+          //~ niz(i,j,k)=cos(phi*M_PI);
           gsl_ran_dir_3d(rng, &nx, &ny, &nz);
           nix(i, j, k) = nx;
           niy(i, j, k) = ny;
@@ -60,9 +65,9 @@ void homogeneous_ic(float *ni, int *pt, Parameters params) {
 
   float theta = params.theta_0;
   float phi = params.phi_0;
-  printf("homogeneous initial conditions\n\n");
-  printf("phi0:   %g\n", phi);
-  printf("theta0: %g\n", theta);
+  printf("  Initial condition: homogeneous\n");
+  printf("  %-10s %g\n", "phi0:", phi);
+  printf("  %-10s %g\n\n", "theta0:", theta);
   for (int i = 0; i < Nx; i++) {
     for (int j = 0; j < Ny; j++) {
       for (int k = 0; k < Nz; k++) {
@@ -95,12 +100,12 @@ void read_ic_file(float *ni, int *pt, Parameters params) {
   int line = 1;
   x = fscanf(input_file, "x,y,z,nx,ny,nz");
   garbage = fgets(garbage, 500, input_file);
-  printf("Reading initial conditions from %s\n", params.ic_file);
+  printf("  Initial condition: file (%s)\n", params.ic_file);
   fflush(stdout);
   for (int i = 0; i < Nx * Ny * Nz; i++) {
     if (fscanf(input_file, "%d,%d,%d,%f,%f,%f", &x, &y, &z, &nx, &ny, &nz) != 6) {
-      fprintf(stderr, "%d,%d,%d,%f,%f,%f\n", x, y, z, nx, ny, nz);
-      fprintf(stderr, "Problem in the line %d!\nAbborting!!!\n", ++line);
+      fprintf(stderr, "  [ERROR] Malformed data: %d,%d,%d,%f,%f,%f\n", x, y, z, nx, ny, nz);
+      fprintf(stderr, "  [ERROR] Problem reading line %d. Aborting.\n", ++line);
       exit(3);
     } else {
       nix(x, y, z) = nx;
@@ -122,10 +127,10 @@ void cholesteric_ic(float *ni, int *pt, Parameters params) {
   float phi_0 = params.phi_0 * M_PI / 180;
   float p0 = params.p0_i ? params.p0_i : params.p0;
   float phi;
-  printf("Cholesteric initial conditions\n\n");
-  printf("p0:     %g\n", p0);
-  printf("phi0:   %g\n", phi_0);
-  printf("theta0: %g\n", theta);
+  printf("  Initial condition: cholesteric\n");
+  printf("  %-10s %g\n", "p0:", p0);
+  printf("  %-10s %g\n", "phi0:", phi_0);
+  printf("  %-10s %g\n\n", "theta0:", theta);
   for (int i = 0; i < Nx; i++) {
     for (int j = 0; j < Ny; j++) {
       for (int k = 0; k < Nz; k++) {

@@ -36,7 +36,7 @@ float EvolveN::energy_calculator() {
   }
 
   double Etot = 0;
-#pragma omp parallel for simd reduction(+ : Etot) schedule(simd : dynamic) num_threads(omp_get_max_threads())
+#pragma omp parallel for simd reduction(+ : Etot) schedule(simd : static) num_threads(omp_get_max_threads())
   for (int idx = 0; idx < Nt; idx++) {
     nni nLocal[8];
 
@@ -96,7 +96,7 @@ void EvolveN::Monte_Carlo_Step(float &ang_var, gsl_rng **r) {
     myNi[i] = ni[i];
 #pragma omp parallel num_threads(omp_get_max_threads())
   for (int tick = 0; tick < 8; tick++) {
-#pragma omp for simd reduction(+ : acceptance) schedule(simd : dynamic)
+#pragma omp for simd reduction(+ : acceptance) schedule(simd : static)
     for (int nt = 0; nt < Ntt; nt++) {
       float E_new, E_old, rotation_type, va, ranVal;
       int i, j, k;
@@ -108,8 +108,7 @@ void EvolveN::Monte_Carlo_Step(float &ang_var, gsl_rng **r) {
       int di = tick % 2;
       int dj = (tick / 2) % 2;
       int dk = tick / 4;
-      const static int nti = 8;
-      nni nLocal[nti];
+      nni nLocal[8];
 
       i = di + iBox * iBoxSize;
       if (i >= Nx)

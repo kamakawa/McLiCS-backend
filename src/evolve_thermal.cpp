@@ -83,7 +83,6 @@ int thermalEvolveN::run() {
     if (strcasecmp(params->potential, "pear") == 0) {
       float P = Polarization(ni, *params);
       fprintf(po_file, "%g %g %g %g %g %g\n", params->T, S1, S2 - S1 * S1, E, (E2 - E * E), P);
-      //printf("  T=%g  S=%g  E=%g  P=%g\n", params->T, S1, E, P);
     } else {
       fprintf(po_file, "%g %g %g %g %g\n", params->T, S1, S2 - S1 * S1, E, (E2 - E * E));
     }

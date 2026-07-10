@@ -15,7 +15,6 @@
 #include "../include/potential.h"
 #include <cuda_runtime.h>
 #include <curand_kernel.h>
-#include <ctime>
 using std::string;
 
 quenchEvolveNGPU::quenchEvolveNGPU(float *ni, int *ppt, Parameters *params)
@@ -31,6 +30,7 @@ d_params=EvolveNGPU::d_params;
 
 int quenchEvolveNGPU::run(){
   
+//~   float BCB, CBC,P1,V1,B1,C1,vec_nt[3];
   float Nt=Nx*Ny*Nz;
   float S1, S2, sTemp;
   float tempE, E2, E;
@@ -59,17 +59,12 @@ int quenchEvolveNGPU::run(){
   cudaMemcpy(d_ni, ni, 3*Nt*sizeof(float), cudaMemcpyHostToDevice);
   cudaMemcpy(d_pt, pt, Nt*sizeof(int), cudaMemcpyHostToDevice);
   cudaMemcpy(d_params, params, sizeof(Parameters), cudaMemcpyHostToDevice);
-
-  const unsigned int nStates = tick.x * tick.y * tick.z;
-  const int rngThreads = 256;
-  const int rngBlocks  = (nStates + rngThreads - 1) / rngThreads;
-  initRNG<<<rngBlocks, rngThreads>>>(d_rngStates, 1u, nStates);
-  cudaDeviceSynchronize();
+//~   cudaMemcpy(d_acc, &acceptance, sizeof(unsigned int), cudaMemcpyHostToDevice);
+  initRNG<<<tick, 1>>>(d_rngStates, 1, tick);
   cudaMemcpy(d_T, &params->T, sizeof(float), cudaMemcpyHostToDevice);
     
-  gsl_rng_env_setup();
-  gsl_rng * rng = gsl_rng_alloc(gsl_rng_default);
-  gsl_rng_set(rng, (unsigned long)time(nullptr));
+//~   int num_threads=omp_get_max_threads();
+  gsl_rng * rng;
   
   sprintf(fname,"po.dat");
   FILE *po_file=fopen(fname,"a");
@@ -112,7 +107,6 @@ int quenchEvolveNGPU::run(){
     if (strcasecmp(params->potential, "pear") == 0) {
       float P = Polarization(ni, *params);
       fprintf(po_file,"%d %g %g %g %g %g\n",ii,S1, S2-S1*S1, E, (E2-E*E), P);
-      //printf("  ii=%d  S=%g  E=%g  P=%g\n",ii,S1,E,P);
     } else {
       fprintf(po_file,"%d %g %g %g %g\n",ii,S1, S2-S1*S1, E, (E2-E*E));
     }
@@ -120,5 +114,6 @@ int quenchEvolveNGPU::run(){
   }
   fclose(po_file);
   gsl_rng_free (rng);
+//~   for (int i=0; i<num_threads; i++) gsl_rng_free (rng[i]);
   return 0;
 }

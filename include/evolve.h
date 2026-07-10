@@ -13,16 +13,14 @@
 #else
 // #pragma message ( "CPU Compilation" )
 struct dim3 {
-  unsigned int x;
-  unsigned int y;
-  unsigned int z;
+  uint x;
+  uint y;
+  uint z;
 };
 #endif
 
 class Evolve {
  public:
-  virtual ~Evolve() = default;
-
   virtual int run() { return 0; };
   virtual float latice_Potential() { return 0; };
   unsigned int Nx, Ny, Nz;
@@ -35,11 +33,8 @@ class Evolve {
     fflush(stdout);
   }
 };
-
 class EvolveN : public Evolve {
  public:
-  ~EvolveN() override = default;
-
   EvolveN(float *ni, int *pt, Parameters *params) : ni(ni), pt(pt), params(params), Nx(params->Nx), Ny(params->Ny), Nz(params->Nz){};
   virtual int run() { return 0; };
   void Monte_Carlo_Step(float &ang_var, gsl_rng **r);
@@ -66,7 +61,7 @@ class thermalEvolveN : public EvolveN {
  public:
   thermalEvolveN(float *ni, int *pt, Parameters *params);
   int run();
-  ~thermalEvolveN() override = default;
+  ~thermalEvolveN();
   int Nx, Ny, Nz;
   float *ni;
   int *pt;
@@ -76,7 +71,7 @@ class stepEvolveN : public EvolveN {
  public:
   stepEvolveN(float *ni, int *pt, Parameters *params);
   int run();
-  ~stepEvolveN() override = default;
+  ~stepEvolveN();
   int Nx, Ny, Nz;
   float *ni;
   int *pt;
@@ -86,7 +81,7 @@ class quenchEvolveN : public EvolveN {
  public:
   quenchEvolveN(float *ni, int *pt, Parameters *params);
   int run();
-  ~quenchEvolveN() override = default;
+  ~quenchEvolveN();
   int Nx, Ny, Nz;
   float *ni;
   int *pt;
@@ -95,7 +90,7 @@ class electricEvolveN : public EvolveN {
  public:
   electricEvolveN(float *ni, int *pt, Parameters *params);
   int run();
-  ~electricEvolveN() override = default;
+  ~electricEvolveN();
   int Nx, Ny, Nz;
   float *ni;
   int *pt;

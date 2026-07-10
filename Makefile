@@ -1,149 +1,81 @@
 # ===========================================================================
-#  McLiCS — Makefile
+#  McLiCS - Makefile
 #  Targets:
-#    make          → GPU binary (mc_sim),  requires nvcc
-#    make cpu      → CPU binary (mc_sim_cpu)
-#    make clean    → remove build artefacts and binaries
+#    make            -> GPU binary (mc_sim), requires nvcc
+#    make CPU        -> CPU-only binary (mc_sim)
+#    make clean      -> remove build artefacts and the binary
+#    make clean-data -> remove simulation output (ic.csv, po.dat, director_field_*.csv)
 # ===========================================================================
-
-PROGRAM_GPU := mc_sim
-PROGRAM_CPU := mc_sim_cpu
-
-COMPILER := g++
-GPUCOMP  := nvcc
-
-# Detect architecture from the GPU at build time (falls back to sm_60)
-GPU_ARCH := $(shell nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null \
-            | head -1 | tr -d '.' | sed 's/^/sm_/' || echo sm_60)
-
-FLAGS    := -O3 -std=c++17 -fopenmp
-GPUFLAGS := -O3 -std=c++17 -arch=$(GPU_ARCH)
-
-LIB      := -lm -lgsl -lgslcblas -lgomp
-
-# Detect whether nvcc is available (searches PATH + common CUDA install locations)
-NVCC_SEARCH := $(shell \
-  which nvcc 2>/dev/null \
-  || ls /usr/local/cuda/bin/nvcc 2>/dev/null \
-  || ls /usr/local/cuda-*/bin/nvcc 2>/dev/null | tail -1 \
-  || ls /opt/cuda/bin/nvcc 2>/dev/null)
-HAS_CUDA := $(if $(NVCC_SEARCH),yes)
-# Use the full path found above so nvcc works even if not in PATH
-ifneq ($(NVCC_SEARCH),)
-  GPUCOMP := $(NVCC_SEARCH)
+ PROGRAM := mc_sim
+########### Gnu:
+ COMPILER := g++ 
+ GPUCOMP  := nvcc
+ FLAGS    :=  -O3  -fopenmp -static
+ GPUFLAGS    :=  -O3
+ #-Wno-unused-result -Wno-format
+ LIB := -lm  -lgsl -lgslcblas  -lgomp 
+# LIB := -lm  -lgslcblas  -lgsl -lgomp 
+USECUDA:=-D CUDA__="CUDA"
+ifeq (,$(shell which nvcc))
+	.DEFAULT_GOAL=CPU
+	USECUDA:= 
 endif
+############ Intel 2 :
+#COMPILER = icpc
+#FLAGS= -ipo -O3  -no-prec-div -xAVX -simd -qopenmp -fp-model fast=2 -static
+#LIB = -mkl -lgsl 
 
-# ---------------------------------------------------------------------------
-# Source lists
-# ---------------------------------------------------------------------------
-ALL_CPPS := $(wildcard src/*.cpp)
 
-CUDA_SRC := $(wildcard src/*.cu)
-CUDA_OBJ := $(patsubst src/%.cu,  build/%.cuda.o, $(CUDA_SRC))
+############ Intel Debug :
 
-CPU_OBJ  := $(patsubst src/%.cpp, build/cpu_%.o,  $(ALL_CPPS))
-GPU_OBJ  := $(patsubst src/%.cpp, build/gpu_%.o,  $(ALL_CPPS))
+#COMPILER = icpc
+#FLAGS= -O0 -g -static
+#LIB = -mkl -lgsl 
 
-HEADERS  := $(wildcard include/*.h) $(wildcard include/*.cuh)
 
-# ---------------------------------------------------------------------------
-# Default target
-# ---------------------------------------------------------------------------
-ifeq ($(HAS_CUDA),yes)
-.DEFAULT_GOAL := gpu
-else
-.DEFAULT_GOAL := cpu
-endif
 
-# ---------------------------------------------------------------------------
-# GPU build
-# ---------------------------------------------------------------------------
-ifeq ($(HAS_CUDA),yes)
+ 
+CPPS := $(wildcard src/*.cpp)
+CUDA := $(wildcard src/*.cu)
+HEADER := $(wildcard include/*.h)
+OBJS  := $(patsubst src/%.cpp,build/%.o,${CPPS})
+CBJS  := $(patsubst src/%.cu,build/%.cuda.o,${CUDA})
+DBGOBJS  := $(patsubst src/%.cpp,build/%dbg.o,${CPPS})
+DBGCBJS  := $(patsubst src/%.cu,build/%dbg.cuda.o,${CUDA})
 
-gpu: build $(PROGRAM_GPU)
+all:${PROGRAM}
 
-$(PROGRAM_GPU): $(GPU_OBJ) $(CUDA_OBJ)
-	@echo "=== Linking GPU binary ($(GPU_ARCH)) ==="
-	$(GPUCOMP) $(GPUFLAGS) $^ $(LIB) -o $@
-	@echo "GPU binary ready: ./$(PROGRAM_GPU)"
-
-build/gpu_%.o: src/%.cpp $(HEADERS) | build
-	@echo "  [GPU-cpp] $<"
-	$(COMPILER) $(FLAGS) -DCUDA__="CUDA" -c $< -o $@
-
-build/%.cuda.o: src/%.cu $(HEADERS) | build
-	@echo "  [CUDA]    $<"
-	$(GPUCOMP) $(GPUFLAGS) -DCUDA__="CUDA" -dc -c $< -o $@
-
-else
-
-gpu:
-	@echo ""
-	@echo "ERROR: nvcc not found — cannot build GPU target."
-	@echo ""
-	@echo "  nvcc was searched in:"
-	@echo "    - PATH"
-	@echo "    - /usr/local/cuda/bin/"
-	@echo "    - /usr/local/cuda-*/bin/"
-	@echo "    - /opt/cuda/bin/"
-	@echo ""
-	@echo "  To fix, either:"
-	@echo "    1) Install the CUDA Toolkit: https://developer.nvidia.com/cuda-downloads"
-	@echo "    2) Add nvcc to PATH:  export PATH=/usr/local/cuda/bin:\$$PATH"
-	@echo ""
-	@exit 1
-
-endif
-
-# ---------------------------------------------------------------------------
-# CPU build
-# ---------------------------------------------------------------------------
-cpu: build $(PROGRAM_CPU)
-
-$(PROGRAM_CPU): $(CPU_OBJ)
-	@echo "=== Linking CPU binary ==="
-	$(COMPILER) $(FLAGS) $^ $(LIB) -o $@
-	@echo "CPU binary ready: ./$(PROGRAM_CPU)"
-
-build/cpu_%.o: src/%.cpp $(HEADERS) | build
-	@echo "  [CPU-cpp] $<"
-	$(COMPILER) $(FLAGS) -march=native -c $< -o $@
-
-# ---------------------------------------------------------------------------
-# Debug targets
-# ---------------------------------------------------------------------------
-debug: build
-ifeq ($(HAS_CUDA),yes)
-	@echo "=== Debug GPU build ==="
-	$(GPUCOMP) -O0 -g -G -Xcompiler -fopenmp -lineinfo \
-	    -DCUDA__="CUDA" $(GPU_OBJ) $(CUDA_OBJ) $(LIB) -o $(PROGRAM_GPU)_debug
-else
-	@echo "Error: nvcc not found."
-	@exit 1
-endif
-
-debug_cpu: $(CPU_OBJ) | build
-	@echo "=== Debug CPU build ==="
-	$(COMPILER) -O0 -g $(FLAGS) $(ALL_CPPS) $(LIB) -o $(PROGRAM_CPU)_debug
-
-# ---------------------------------------------------------------------------
-# Utility
-# ---------------------------------------------------------------------------
+${PROGRAM}: ${OBJS} ${CBJS}
+	@${GPUCOMP} ${GPUFLAGS} $(filter-out  build/simulator.o,${OBJS}) ${CBJS} ${LIB} -o ${PROGRAM}
+CPU:  $(filter-out  build/simulatorGPU.o,${OBJS})
+	@${COMPILER} ${FLAGS} $(filter-out  build/simulatorGPU.o,${OBJS}) ${LIB} -o ${PROGRAM}
+${OBJS}: build/%.o: src/%.cpp ${HEADER} | build
+	${COMPILER} ${FLAGS} -c $< -o $@ ${USECUDA}
+${CBJS}: build/%.cuda.o: src/%.cu  | build
+	${GPUCOMP}  ${GPUFLAGS} -dc -c  $< -o $@ -D CUDA__="CUDA"
+	
 build:
-	@mkdir -p build
+	@mkdir build
+debug:	${DBGOBJS} ${DBGCBJS}
+	${GPUCOMP}  -O0 -g -Xcompiler -fopenmp  -lineinfo $(filter-out -O% -fast -static, ${GPUFLAGS}) $(filter-out  build/simulatordbg.o,${DBGOBJS}) ${DBGCBJS}  ${LIB} -o ${PROGRAM}_debug
+	#@rm build/*dbg.o
+${DBGOBJS}: build/%dbg.o: src/%.cpp  | build
+	${COMPILER}  -O0 -g $(filter-out -O% -fast, ${FLAGS}) -c $< -o $@ ${USECUDA}
+${DBGCBJS}: build/%dbg.cuda.o: src/%.cu | build
+	${GPUCOMP}  -O0 -g $(filter-out -O% -fast, ${GPUFLAGS}) -lineinfo -dc -c $< -o $@ ${USECUDA}
+$(patsubst %.o,%dbg.o,${OBJS}): ${HEADER}
 
-all: cpu
-ifeq ($(HAS_CUDA),yes)
-all: gpu
-endif
+renew: clean	${PROGRAM}
 
 clean:
-	@rm -f $(PROGRAM_GPU) $(PROGRAM_CPU) $(PROGRAM_GPU)_debug $(PROGRAM_CPU)_debug
-	@rm -rf build
+	@rm -f ${PROGRAM}
+	@rm -fr build
+	@rm -f *.o
 	@echo "Clean done."
 
 clean-data:
-	@find . -type f -name "director_field_*.csv" -delete
-	@echo "All director_field_*.csv files removed."
-	
-.PHONY: gpu cpu all debug debug_cpu clean clean-data
+	@rm -f ic.csv po.dat
+	@find . -maxdepth 1 -type f -name "director_field_*.csv" -delete
+	@echo "Simulation output removed (ic.csv, po.dat, director_field_*.csv)."
+
+.PHONY: all CPU debug build clean clean-data renew

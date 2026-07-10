@@ -11,16 +11,10 @@ class EvolveNGPU: public Evolve{
 public:
 
 EvolveNGPU(float *ni, int *pt, Parameters *params):ni(ni),pt(pt),params(params),Nx(params->Nx),Ny(params->Ny),Nz(params->Nz){};
-virtual ~EvolveNGPU();
 virtual int run(){return 0;};
 float energy_calculator_GPU();
 void Monte_Carlo_Step_GPU( float &ang_var, gsl_rng * r);
-static __device__ void MC_GPU(dim3 tick, int di, int dj, int dk,
-                              float *ni, int *pt, float *d_T, float ang_var,
-                              curandState *const rngStates,
-                              unsigned int *acceptance,
-                              Parameters *params);
-                              
+__device__ void MC_GPU(dim3 tick, int di, int dj, int dk, float *ni, int *pt, float *d_T, float ang_var, curandState *const rngStates, unsigned int *acceptance, Parameters *params);
 protected:
 dim3 tick;
 curandState *d_rngStates = 0;
@@ -33,17 +27,12 @@ float *ni, *d_ni;
 int *pt;
 Parameters *params;
 
-// Buffers used for surface normals and anchoring strength on the GPU.
-// Device global pointers d_ns/d_W point to these allocations.
-float *d_ns_buf = 0;
-float *d_W_buf  = 0;
-
 };
 class thermalEvolveNGPU: public EvolveNGPU{
   public:
     thermalEvolveNGPU(float *ni, int *pt, Parameters *params);
     int run();
-    ~thermalEvolveNGPU() override = default;
+    ~thermalEvolveNGPU();
   int Nx, Ny, Nz;
   float *ni;
   int *pt;
@@ -53,7 +42,7 @@ class stepEvolveNGPU: public EvolveNGPU{
 public:
   stepEvolveNGPU(float *ni, int *pt, Parameters *params);
   int run();
-  ~stepEvolveNGPU() override = default;
+  ~stepEvolveNGPU();
 int Nx, Ny, Nz;
 float *ni;
 int *pt;
@@ -62,7 +51,7 @@ class quenchEvolveNGPU: public EvolveNGPU{
   public:
     quenchEvolveNGPU(float *ni, int *pt, Parameters *params);
     int run();
-    ~quenchEvolveNGPU() override = default;
+    ~quenchEvolveNGPU();
   int Nx, Ny, Nz;
   float *ni;
   int *pt;
@@ -71,12 +60,12 @@ class electricEvolveNGPU: public EvolveNGPU{
   public:
     electricEvolveNGPU(float *ni, int *pt, Parameters *params);
     int run();
-    ~electricEvolveNGPU() override = default;
+    ~electricEvolveNGPU();
   int Nx, Ny, Nz;
   float *ni;
   int *pt;
 };
-__global__ void initRNG(curandState *const rngStates, const unsigned int seed, const unsigned int nStates);
+__global__ void initRNG(curandState *const rngStates, const unsigned int seed, dim3 tick);
 
 
 #endif

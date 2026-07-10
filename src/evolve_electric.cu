@@ -15,7 +15,6 @@
 #include "../include/potential.h"
 #include <cuda_runtime.h>
 #include <curand_kernel.h>
-#include <ctime>
 using std::string;
 
 electricEvolveNGPU::electricEvolveNGPU(float *ni, int *ppt, Parameters *params)
@@ -32,9 +31,12 @@ d_params=EvolveNGPU::d_params;
 }; 
 
 int electricEvolveNGPU::run(){
+  //~ for (int ii=0; ii<geometry->nSurfaces; ii++) surfaces[ii]=geometry->surfaces[ii];
   float Nt=Nx*Ny*Nz;
   float S1, S2;
+  //~ float P1,V1,B1,C1, BCB, CBC;
   float sTemp;
+  //~ float vec_nt[3];
   float vec_n[3] ;
   float mat_n[9] ;
   float ang_var=0.5;
@@ -59,16 +61,10 @@ int electricEvolveNGPU::run(){
   cudaMemcpy(d_ni, ni, 3*Nt*sizeof(float), cudaMemcpyHostToDevice);
   cudaMemcpy(d_pt, pt, Nt*sizeof(int), cudaMemcpyHostToDevice);
   cudaMemcpy(d_params, params, sizeof(Parameters), cudaMemcpyHostToDevice);
-
-  const unsigned int nStates = tick.x * tick.y * tick.z;
-  const int rngThreads = 256;
-  const int rngBlocks  = (nStates + rngThreads - 1) / rngThreads;
-  initRNG<<<rngBlocks, rngThreads>>>(d_rngStates, 1u, nStates);
-  cudaDeviceSynchronize();
-
-  gsl_rng_env_setup();
-  gsl_rng * rng = gsl_rng_alloc(gsl_rng_default);
-  gsl_rng_set(rng, (unsigned long)time(nullptr));
+//~   cudaMemcpy(d_acc, &acceptance, sizeof(unsigned int), cudaMemcpyHostToDevice);
+  initRNG<<<tick, 1>>>(d_rngStates, 1, tick);
+      
+  gsl_rng * rng;
   
   sprintf(fname,"po.dat");
   int sign=-params->elecdE/fabs(params->elecdE);
@@ -109,7 +105,6 @@ int electricEvolveNGPU::run(){
     if (strcasecmp(params->potential, "pear") == 0) {
       float P = Polarization(ni, *params);
       fprintf(po_file,"%g %g %g %g %g %g\n",params->elecE,S1, S2-S1*S1, E, (E2-E*E), P);
-      //printf("  E=%g  S=%g  E_energy=%g  P=%g\n",params->elecE,S1,E,P);
     } else {
       fprintf(po_file,"%g %g %g %g %g\n",params->elecE,S1, S2-S1*S1, E, (E2-E*E));
     }

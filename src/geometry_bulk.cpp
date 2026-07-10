@@ -47,9 +47,9 @@ Bulk_Geometry::Bulk_Geometry(int *pt, Parameters *params) : Geometry(params) {
     exit(2);
   }
 
-  printf("  X boundary   : %s\n", params->XBoundtype);
-  printf("  Y boundary   : %s\n", params->YBoundtype);
-  printf("  Z boundary   : %s\n", params->ZBoundtype);
+  printf("  %-13s%s\n", "X boundary:", params->XBoundtype);
+  printf("  %-13s%s\n", "Y boundary:", params->YBoundtype);
+  printf("  %-13s%s\n", "Z boundary:", params->ZBoundtype);
   printf("\n");
 }
 
@@ -64,8 +64,8 @@ float Bulk_Geometry::latice_Potential(const nni fullni[7]) {
   float E = 0;
   float ni[3] = {fullni[0].x, fullni[0].y, fullni[0].z};
   E = Geometry::newman_neighbours(fullni);
-  if (params->elecA!=0) 
-    E+=Electric_Potential(ni,params);
+  if (params->elecA != 0)
+    E += Electric_Potential(ni, params);
 
   return E;
 }

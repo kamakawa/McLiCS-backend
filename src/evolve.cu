@@ -22,18 +22,11 @@ namespace cg = cooperative_groups;
 #include <curand_kernel.h>
 using std::string;
 
-#define CUDA_CHECK(call) do { \
-  cudaError_t _e = (call); \
-  if (_e != cudaSuccess) { \
-    printf("CUDA error %s:%d: %s\n", __FILE__, __LINE__, cudaGetErrorString(_e)); \
-    exit(20); \
-  } \
-} while (0)
-
-__global__ void initRNG(curandState *const rngStates, const unsigned int seed, const unsigned int nStates)
+__global__ void initRNG(curandState *const rngStates, const unsigned int seed, dim3 tick)
 {
-  const unsigned int tid = blockIdx.x * blockDim.x + threadIdx.x;
-  if (tid >= nStates) return;
+  // Determine thread ID
+  unsigned int tid = blockIdx.x+tick.x*(blockIdx.y+tick.y*blockIdx.z);
+  // Initialise the RNG
   curand_init(seed, tid, 0, &rngStates[tid]);
 }
 
@@ -63,12 +56,10 @@ __global__ void get_Energy (float *ni,
   int Nz=params->Nz;
   int idx=blockIdx.x*blockDim.x+threadIdx.x;
   if (idx>Nx*Ny*Nz-1) return;
-  // idx = i + Nx*(j + Ny*k)
-  int i = idx % Nx;
-  int j = (idx / Nx) % Ny;
-  int k = idx / (Nx * Ny);
-
-  nni nLocal[28];
+  int i=idx%Nx;
+  int j=(idx%Ny-i)/Ny;
+  int k=idx/(Nx*Ny);
+  nni nLocal[8];
   
   int im=(i-1); int ip=(i+1);
   int jm=(j-1); int jp=(j+1);
@@ -99,18 +90,19 @@ __global__ void get_Energy (float *ni,
   }
   h_eLat[idx]=latice_Potential_GPU(nLocal, params);
 }
-__global__ void callMCGPU(dim3 tick,
-                          int di,
-                          int dj,
-                          int dk,
-                          float *d_ni,
-                          int *d_pt,
-                          float *d_T,
-                          float ang_var,
-                          curandState *const d_rngStates,
-                          unsigned int *d_acc,
+__global__ void callMCGPU(EvolveNGPU * evolve, 
+                          dim3 tick, 
+                          int di, 
+                          int dj, 
+                          int dk, 
+                          float *d_ni, 
+                          int *d_pt, 
+                          float *d_T, 
+                          float ang_var, 
+                          curandState *const d_rngStates, 
+                          unsigned int *d_acc, 
                           Parameters *d_params) {
-  EvolveNGPU::MC_GPU(tick, di, dj, dk, d_ni, d_pt, d_T, ang_var, d_rngStates, d_acc, d_params);
+  evolve->MC_GPU(tick, di, dj, dk, d_ni, d_pt, d_T, ang_var, d_rngStates, d_acc, d_params);
 }
 
 __device__ void EvolveNGPU::MC_GPU (dim3 tick, 
@@ -129,16 +121,12 @@ __device__ void EvolveNGPU::MC_GPU (dim3 tick,
   int Nz=params->Nz;
   float fPi=M_PI;
   int Idx=blockIdx.x*blockDim.x+threadIdx.x;
-
-  const int nStates = (int)(tick.x * tick.y * tick.z);
-  if (Idx >= nStates) return;
   int iBox=Idx%tick.x;
   int jBox=((Idx)/tick.x)%tick.y;
   int kBox=Idx/(tick.x*tick.y);
   curandState *localState = &rngStates[Idx];
   float T=*d_T;
-  const int nti=28;
-  nni nLocal[nti];
+  nni nLocal[8];
   
     float E_new=0, E_old=0, va, ranVal;
     int i,j,k;
@@ -153,6 +141,7 @@ __device__ void EvolveNGPU::MC_GPU (dim3 tick,
       return;
     }
     va= (2*curand_uniform(localState)-1)*ang_var; 
+    //Create a rotation candidate
     rotation_type=curand_uniform(localState);
     if (rotation_type < 0.333) {
       nNew[0]=nix(i,j,k);
@@ -200,6 +189,7 @@ __device__ void EvolveNGPU::MC_GPU (dim3 tick,
     nLocal[0].z = nNew[2];
     E_new=latice_Potential_GPU(nLocal, params);
   
+    //test new config
     ranVal=curand_uniform(localState);
     if (ranVal<=expf(-(E_new-E_old)/T) )
     {
@@ -273,6 +263,7 @@ __global__ void setELat(double *h_eLat) {
 }
 
 void EvolveNGPU::Monte_Carlo_Step_GPU(float &ang_var, gsl_rng * r) {
+  float *ns;
   static unsigned int nThread=8;
   static int redSteps, redSteps2, nRed, maxNThread, vallid=0;
   static int Nt=params->Nx*params->Ny*params->Nz;
@@ -301,7 +292,7 @@ void EvolveNGPU::Monte_Carlo_Step_GPU(float &ang_var, gsl_rng * r) {
     float *local_W=(float*) malloc(nSurfaces*sizeof(float));
     for (int ii=0; ii<nSurfaces; ii++)
     {
-      local_W[ii] = params->W[ii];
+      local_W[ii]=params->W[ii];
       sprintf(surfaceNames,"%s",geometry->surfaces[ii]->getName());
       cudaMemcpy(d_surfaceNames,surfaceNames, 50*sizeof(char),cudaMemcpyHostToDevice);
     printf("%s\n",surfaceNames  );
@@ -325,14 +316,13 @@ void EvolveNGPU::Monte_Carlo_Step_GPU(float &ang_var, gsl_rng * r) {
         }
       }
     }
+    float *h_W;
     cudaFree(d_surfaceNames);
-    if (!d_ns_buf) CUDA_CHECK(cudaMalloc(&d_ns_buf, 3*Nt*sizeof(float)));
-    if (!d_W_buf)  CUDA_CHECK(cudaMalloc(&d_W_buf,  nSurfaces*sizeof(float)));
-
-    CUDA_CHECK(cudaMemcpy(d_ns_buf, geometry->ns, 3*Nt*sizeof(float), cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(d_W_buf,  local_W,      nSurfaces*sizeof(float), cudaMemcpyHostToDevice));
-    passGPUns<<<1,1>>>(d_ns_buf, d_W_buf);
-    CUDA_CHECK(cudaGetLastError());
+    cudaMalloc(&ns, 3*Nt*sizeof(float));
+    cudaMalloc(&h_W, nSurfaces*sizeof(float));
+      cudaMemcpy(ns,geometry->ns, 3*Nt*sizeof(float),cudaMemcpyHostToDevice);
+      cudaMemcpy(h_W,local_W, nSurfaces*sizeof(float),cudaMemcpyHostToDevice);
+      passGPUns<<<1,1>>>(ns,h_W);
     free(local_W); 
     {
       redSteps2=1;
@@ -362,7 +352,7 @@ void EvolveNGPU::Monte_Carlo_Step_GPU(float &ang_var, gsl_rng * r) {
     for(int di=0; di<(2); di++) {
       for(int dj=0; dj<(2); dj++) {
         for(int dk=0; dk<(2); dk++) {
-          callMCGPU<<<blk,thr>>>(tick, di, dj, dk, d_ni, d_pt, d_T, ang_var, d_rngStates, d_acc, d_params);
+          callMCGPU<<<blk,thr>>>(this, tick, di, dj, dk, d_ni, d_pt, d_T, ang_var, d_rngStates, d_acc, d_params);
       }
     }
   }
@@ -405,7 +395,7 @@ float EvolveNGPU::energy_calculator_GPU() {
   static int maxNThread;
   if(setUp) {
     //Memory Allocation
-    CUDA_CHECK(cudaMalloc(&d_eLat, Nt*sizeof(float)));
+    cudaMallocManaged(&d_eLat,Nt*sizeof(double));
     for (int ii=0; ii<Nt; ii++)
       vallid+=pt[ii]?1:0;
     cudaDeviceGetAttribute(&maxNThread,cudaDevAttrMaxThreadsPerBlock,0);
@@ -421,39 +411,26 @@ float EvolveNGPU::energy_calculator_GPU() {
     }
     setUp=false;
   }
-   CUDA_CHECK(cudaGetLastError());
+   cudaDeviceSynchronize();
+   if (cudaGetLastError()!=cudaSuccess) {
+     printf("error in cuda, setup\n"); exit(20);
+   }
   
    get_Energy<<<nBlocks,32>>>(d_ni, d_pt, d_params, d_eLat);
-   CUDA_CHECK(cudaGetLastError());
-   CUDA_CHECK(cudaDeviceSynchronize());
-
-   reduce_sum<<<redSteps2,redSteps,redSteps*sizeof(float)>>>(d_eLat,d_eLat,Nt);
-   for (int ii=redSteps2; ii>1; ii/=maxNThread) {
-     reduce_sum<<<ii/maxNThread?ii/maxNThread:1,maxNThread,maxNThread*sizeof(float)>>>(d_eLat,d_eLat,Nt); 
+   cudaDeviceSynchronize();
+   
+   cudaError_t status=cudaGetLastError();
+   if (status!=cudaSuccess) {
+     printf("error in cuda, energy %s\n",cudaGetErrorName(status)); exit(20);
    }
-   CUDA_CHECK(cudaGetLastError());
-   CUDA_CHECK(cudaDeviceSynchronize());
-   float Ehost = 0.0f;
-   CUDA_CHECK(cudaMemcpy(&Ehost, d_eLat, sizeof(float), cudaMemcpyDeviceToHost));
-   return Ehost / vallid;
-}
-
-EvolveNGPU::~EvolveNGPU() {
-  if (d_rngStates) CUDA_CHECK(cudaFree(d_rngStates));
-  if (d_ni)        CUDA_CHECK(cudaFree(d_ni));
-  if (d_pt)        CUDA_CHECK(cudaFree(d_pt));
-  if (d_T)         CUDA_CHECK(cudaFree(d_T));
-  if (d_params)    CUDA_CHECK(cudaFree(d_params));
-  if (d_acc)       CUDA_CHECK(cudaFree(d_acc));
-  if (d_ns_buf)    CUDA_CHECK(cudaFree(d_ns_buf));
-  if (d_W_buf)     CUDA_CHECK(cudaFree(d_W_buf));
-
-  d_rngStates = 0;
-  d_ni = 0;
-  d_pt = 0;
-  d_T = 0;
-  d_params = 0;
-  d_acc = 0;
-  d_ns_buf = 0;
-  d_W_buf = 0;
+   cudaDeviceSynchronize();
+   reduce_sum<<<redSteps2,redSteps,redSteps*sizeof(double)>>>(d_eLat,d_eLat,Nt);
+   for (int ii=redSteps2; ii>1; ii/=maxNThread) {
+     reduce_sum<<<ii/maxNThread?ii/maxNThread:1,maxNThread,maxNThread*sizeof(double)>>>(d_eLat,d_eLat,Nt); 
+   }
+   if (cudaGetLastError()!=cudaSuccess) {
+     printf("error in cuda, reduce\n"); exit(20);
+   }
+   cudaDeviceSynchronize();
+   return d_eLat[0]/vallid;
 }

@@ -20,11 +20,11 @@ __device__ float Bulk_Energy_Lebwohl_Lasher_GPU(float ni[3], float nj[3], Parame
 
 __device__ float Bulk_Energy_GHRL_GPU(float ni[3], float nj[3], Parameters *params, float rij[3], int nk){
   
-  const float el = params->ghrl_lambda;
-  const float em = params->ghrl_mu;
-  const float en = params->ghrl_nu;
-  const float er = params->ghrl_rho;
-  const float es = params->ghrl_sigma;
+  const float el=params->ghrl_lambda;
+  const float em=params->ghrl_mu;
+  const float en=params->ghrl_nu;
+  const float er=params->ghrl_rho;
+  const float es=params->ghrl_sigma;
   float ai=ni[0]*rij[0]+ni[1]*rij[1]+ni[2]*rij[2];
   float aj=nj[0]*rij[0]+nj[1]*rij[1]+nj[2]*rij[2];
   float nij=ni[0]*nj[0]+ni[1]*nj[1]+ni[2]*nj[2];

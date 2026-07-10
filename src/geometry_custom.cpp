@@ -47,9 +47,9 @@ Custom_Geometry::Custom_Geometry(int *pt, Parameters *params) : Geometry(params)
     exit(2);
   }
 
-  printf("  X boundary   : %s\n", params->XBoundtype);
-  printf("  Y boundary   : %s\n", params->YBoundtype);
-  printf("  Z boundary   : %s\n", params->ZBoundtype);
+  printf("  %-13s%s\n", "X boundary:", params->XBoundtype);
+  printf("  %-13s%s\n", "Y boundary:", params->YBoundtype);
+  printf("  %-13s%s\n", "Z boundary:", params->ZBoundtype);
   printf("\n");
 }
 
@@ -137,7 +137,7 @@ float Custom_Geometry::latice_Potential(const nni fullni[7]) {
     float s[3] = {fullni[7].x, fullni[7].y, fullni[7].z};
     E += surfaces[fullni[0].pt - 2]->surface_potential(ni, s);
   }
-  if (params->elecA!=0)
+  if (params->elecA != 0)
     E += Electric_Potential(ni, params);
 
   return E;

@@ -38,8 +38,8 @@ Slab_Geometry::Slab_Geometry(int *pt, Parameters *params) : Geometry(params) {
     exit(2);
   }
 
-  printf("  X boundary   : %s\n", params->XBoundtype);
-  printf("  Y boundary   : %s\n", params->YBoundtype);
+  printf("  %-13s%s\n", "X boundary:", params->XBoundtype);
+  printf("  %-13s%s\n", "Y boundary:", params->YBoundtype);
   printf("\n");
 }
 
@@ -71,11 +71,12 @@ float Slab_Geometry::latice_Potential(const nni fullni[7]) {
   float ni[3] = {fullni[0].x, fullni[0].y, fullni[0].z};
 
   E = Geometry::newman_neighbours(fullni);
+
   float s[3] = {fullni[7].x, fullni[7].y, fullni[7].z};
   if (fullni[0].pt > 1)
     E += surfaces[fullni[0].pt - 2]->surface_potential(ni, s);
-  if (params->elecA!=0) 
-    E+=Electric_Potential(ni,params);
+  if (params->elecA != 0)
+    E += Electric_Potential(ni, params);
 
   return E;
 }
