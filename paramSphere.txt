@@ -1,0 +1,28 @@
+Nx  20
+Ny  20
+Nz  20
+Nk 1
+
+potential ghrl
+k11 1
+k22 1
+k33 1
+p0  0
+
+evol thermal
+Ti  0.9
+Tf  0.85
+dT  -0.05
+
+MCS 200
+MCT 2000
+
+ic random
+
+geometry sphere
+xbound free
+ybound free
+zbound free
+
+anchoring_type 0 homeotropic
+W              0 2.0
