@@ -50,6 +50,11 @@ struct Parameters {
   int MCT = 1e2;
   int fn = 1;
   int first_file = 0;
+  // RNG seed. Independent replicas (same params, different seed) sample
+  // different equally-valid defect textures in degenerate geometries
+  // (e.g. droplets with homeotropic anchoring) — average several to get
+  // a stable order-parameter estimate instead of relying on a single run.
+  int seed = 1;
 
   //IC variables
   char ic[50] = "random";

@@ -55,7 +55,7 @@ ${CBJS}: build/%.cuda.o: src/%.cu  | build
 	${GPUCOMP}  ${GPUFLAGS} -dc -c  $< -o $@ -D CUDA__="CUDA"
 	
 build:
-	@mkdir build
+	@mkdir -p build
 debug:	${DBGOBJS} ${DBGCBJS}
 	${GPUCOMP}  -O0 -g -Xcompiler -fopenmp  -lineinfo $(filter-out -O% -fast -static, ${GPUFLAGS}) $(filter-out  build/simulatordbg.o,${DBGOBJS}) ${DBGCBJS}  ${LIB} -o ${PROGRAM}_debug
 	#@rm build/*dbg.o

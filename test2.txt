@@ -1,0 +1,38 @@
+# ─── TESTE 2 — Bulk, quiral (isola o efeito da torção) ───────────────────────
+# Objetivo: testar o mesmo p0=40 do seu input_parameters.txt original, mas
+# SEM confinamento esférico. Assim isolamos: "a quiralidade sozinha já causa
+# dispersão entre seeds, ou é a combinação quiralidade + defeito de superfície
+# que causa o problema?"
+#
+# Num bulk periódico infinito (ou quase, com condição periódica), a estrutura
+# colestérica tende a se organizar numa hélice regular ao longo de uma direção
+# -- mais "ordenada" que dentro de uma gota. Se aqui a dispersão entre seeds
+# for pequena, o problema real está mesmo na geometria esférica (defeito).
+# Se a dispersão já aparecer aqui, a própria quiralidade already basta.
+#
+# Tempo estimado: rápido/médio.
+
+Nx 24
+Ny 24
+Nz 24
+
+MCS 400
+MCT 3000
+
+Ti  1.3
+Tf  0.8
+dT  -0.1
+
+potential ghrl
+k11 1.48
+k22 1
+k33 2.28
+p0  40
+
+fn 30
+evol thermal
+ic random
+geometry bulk
+xbound periodic
+ybound periodic
+zbound periodic

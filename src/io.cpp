@@ -14,18 +14,35 @@
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-static void print_separator(const char *seg = "-", int count = 60) {
+void print_separator(const char *seg, int count) {
   for (int i = 0; i < count; i++) fputs(seg, stdout);
   putchar('\n');
 }
 
-static void print_header(const char *title, int count = 60) {
-  print_separator("-", count);
+void print_header(const char *title, int count, const char *seg) {
+  print_separator(seg, count);
   int titleLen = (int)strlen(title);
   int pad = (count - titleLen - 2) / 2;
   if (pad < 0) pad = 0;
   printf("%*s %s %*s\n", pad, "", title, pad, "");
-  print_separator("-", count);
+  print_separator(seg, count);
+}
+
+// Standard "  Label: value" row. All setup/summary lines (geometry, anchoring,
+// potential, evolve init) go through this so their columns line up regardless
+// of which file printed them.
+static const int kFieldWidth = 13;
+
+void print_field(const char *label, const char *value) {
+  printf("  %-*s%s\n", kFieldWidth, label, value);
+}
+
+void print_field(const char *label, double value) {
+  printf("  %-*s%g\n", kFieldWidth, label, value);
+}
+
+void print_field(const char *label, int value) {
+  printf("  %-*s%d\n", kFieldWidth, label, value);
 }
 
 // ─── print_n ────────────────────────────────────────────────────────────────
@@ -115,6 +132,9 @@ Parameters read_input_file(char *fname) {
       input_file.getline(garbage, 400);
     } else if (strcasecmp(parser, "MCT") == 0) {
       input_file >> input_params.MCT;
+      input_file.getline(garbage, 400);
+    } else if (strcasecmp(parser, "seed") == 0) {
+      input_file >> input_params.seed;
       input_file.getline(garbage, 400);
     } else if (strcasecmp(parser, "ic") == 0) {
       input_file >> input_params.ic;
@@ -241,6 +261,7 @@ void print_parameters(Parameters params) {
   printf("  %-20s %s\n",        "Mode:",      params.evol);
   printf("  %-20s %d steps\n",  "MCS:",       params.MCS);
   printf("  %-20s %d steps\n",  "MCT:",       params.MCT);
+  printf("  %-20s %d\n",        "Seed:",      params.seed);
   if (strcasecmp(params.ic, "ic_file") == 0)
     printf("  %-20s %s\n",      "IC file:",   params.ic_file);
   if (params.elecA) {

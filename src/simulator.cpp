@@ -85,14 +85,17 @@ void simulator::Setup_simmulation(Parameters &params) {
 
   if (strcasecmp(params.potential, "ll") * strcasecmp(params.potential, "lebwohl-lahser") == 0) {
     evolve->geometry->bulk_potential = &Bulk_Energy_Lebwohl_Lasher;
-    printf("  Potential    : Lebwohl-Lasher\n\n");
+    print_field("Potential:", "Lebwohl-Lasher");
+    printf("\n");
   } else if (strcasecmp(params.potential, "ghrl") * strcasecmp(params.potential, "grun-hess") == 0) {
     evolve->geometry->bulk_potential = &Bulk_Energy_GHRL;
     setGHRL(params);
-    printf("  Potential    : Gruhn-Hess (GHRL)\n\n");
+    print_field("Potential:", "Gruhn-Hess (GHRL)");
+    printf("\n");
   } else if (strcasecmp(params.potential, "pear") == 0) {
     evolve->geometry->bulk_potential = &Bulk_Energy_Selinger_Pear;
-    printf("  Potential    : Splay-bend (Pear)\n\n");
+    print_field("Potential:", "Splay-bend (Pear)");
+    printf("\n");
   } else {
     fprintf(stderr, "  [ERROR] Potential '%s' not implemented. Options: ll | ghrl | pear\n", params.potential);
     exit(2);

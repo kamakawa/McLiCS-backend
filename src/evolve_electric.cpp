@@ -19,10 +19,11 @@ electricEvolveN::electricEvolveN(float *ni, int *ppt, Parameters *params)
   this->ni = ni;
   this->pt = ppt;
   this->params = params;
-  printf("Initializing electric loop:\n");
-printf("Ei= %g\n",params->elecEi);
-printf("Ef= %g\n",params->elecEf);
-printf("dE= %g\n\n",params->elecdE);
+  printf("  Electric evolution\n");
+  print_field("Ei:", params->elecEi);
+  print_field("Ef:", params->elecEf);
+  print_field("dE:", params->elecdE);
+  printf("\n");
 };
 
 int electricEvolveN::run() {
@@ -39,7 +40,7 @@ int electricEvolveN::run() {
   gsl_rng_env_setup();
   for (int i = 0; i < num_threads; i++) {
     rng[i] = gsl_rng_alloc(gsl_rng_ranlxs0);
-    gsl_rng_set(rng[i], i);
+    gsl_rng_set(rng[i], params->seed * 104729 + i);
   }
 
   sprintf(fname, "po.dat");
@@ -51,9 +52,8 @@ int electricEvolveN::run() {
     fprintf(po_file, "T S varS E varE\n");
   fflush(po_file);
   params->T = params->Ti;
-  printf("Starting electric variation, for nematic molecules, from %g to %g with step os size %g\n", params->elecEi, params->elecEf, params->elecdE);
-  printf("MCT=%d MCS=%d and %d threads\n",
-         params->MCT, params->MCS, num_threads);
+  print_field("Threads:", num_threads);
+  printf("\n");
   fflush(stdout);
   
   for (params->elecE=params->elecEi; (int)1e6*sign*(params->elecE-params->elecEf)>=0; params->elecE+=params->elecdE){

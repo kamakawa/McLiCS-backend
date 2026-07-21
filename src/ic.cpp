@@ -32,8 +32,8 @@ void random_ic(float *ni, int *pt, Parameters params) {
   gsl_rng *rng;
   gsl_rng_env_setup();
   rng = gsl_rng_alloc(gsl_rng_taus);
-  gsl_rng_set(rng, 1);
-  printf("  Initial condition: random\n\n");
+  gsl_rng_set(rng, params.seed);
+  printf("  Initial condition: random (seed %d)\n\n", params.seed);
   for (int i = 0; i < params.Nx; i++) {
     for (int j = 0; j < params.Ny; j++) {
       for (int k = 0; k < params.Nz; k++) {

@@ -26,14 +26,6 @@ void inline setNni(uint pos, int conditional, nni *nLocal, float *ni, int *pt) {
 }
 float EvolveN::energy_calculator() {
   static const int Nt = params->Nx * params->Ny * params->Nz;
-  static int valid = 0;
-  static bool setUp;
-  if (setUp) {
-    for (int ii = 0; ii < Nt; ii++) {
-      if (pt[ii])
-        valid++;
-    }
-  }
 
   double Etot = 0;
 #pragma omp parallel for simd reduction(+ : Etot) schedule(simd : static) num_threads(omp_get_max_threads())

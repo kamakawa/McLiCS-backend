@@ -1,0 +1,38 @@
+# ─── TESTE 1 — Bulk, não-quiral (baseline limpo) ─────────────────────────────
+# Objetivo: comparação mais "justa" possível entre marmc e McLiCS.
+#   • Sem superfície (bulk periódico) -> sem defeito topológico forçado
+#   • p0 = 0 -> sem torção quiral -> sem cancelamento do Q global
+#   • Temperatura abaixo da transição (T_NI ~1.45 nesta escala) -> fase
+#     nemática bem definida, S alto e estável
+#
+# Expectativa: S entre marmc e McLiCS deve bater bem de perto (~1-2% de
+# diferença), e a variância entre seeds deve ser PEQUENA. Se esse teste não
+# bater, aí sim seria sinal de um problema real de implementação (não de
+# degenerescência física) — é o teste de controle.
+#
+# Tempo estimado: rápido (grade pequena, poucos passos).
+
+Nx 24
+Ny 24
+Nz 24
+
+MCS 400
+MCT 3000
+
+Ti  1.3
+Tf  0.8
+dT  -0.1
+
+potential ghrl
+k11 1.48
+k22 1
+k33 2.28
+p0  0
+
+fn 30
+evol thermal
+ic random
+geometry bulk
+xbound periodic
+ybound periodic
+zbound periodic

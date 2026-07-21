@@ -7,28 +7,31 @@
 #include <vector>
 
 #include "../include/anchoring.h"
+#include "../include/io.h"
 #include "../include/parameters.h"
 #include "../include/potential.h"
 
 RP_Anchoring::RP_Anchoring(Parameters *params, int id) {
   this->id = id;
   this->params = params;
-  printf("  Surface %d    : %s\n", id, name);
+  char label[24];
+  snprintf(label, sizeof(label), "Surface %d:", id);
+  print_field(label, name);
   try {
     W = params->W.at(id);
-    printf("  %-12s %g\n", "W:", W);
+    print_field("W:", W);
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "W");
   }
   try {
     phi_s = params->phi_s.at(id);
-    printf("  %-12s %g\n", "phi_s:", phi_s);
+    print_field("phi_s:", phi_s);
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "phi_s");
   }
   try {
     theta_s = params->theta_s.at(id);
-    printf("  %-12s %g\n", "theta_s:", theta_s);
+    print_field("theta_s:", theta_s);
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "theta_s");
   }
@@ -47,22 +50,24 @@ float RP_Anchoring::surface_potential(float ni[3], float s[3]) {
 RP_Anchoring_GHRL::RP_Anchoring_GHRL(Parameters *params, int id) {
   this->id = id;
   this->params = params;
-  printf("  Surface %d    : %s\n", id, name);
+  char label[24];
+  snprintf(label, sizeof(label), "Surface %d:", id);
+  print_field(label, name);
   try {
     W = params->W.at(id);
-    printf("  %-12s %g\n", "W:", W);
+    print_field("W:", W);
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "W");
   }
   try {
     phi_s = params->phi_s.at(id);
-    printf("  %-12s %g\n", "phi_s:", phi_s);
+    print_field("phi_s:", phi_s);
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "phi_s");
   }
   try {
     theta_s = params->theta_s.at(id);
-    printf("  %-12s %g\n", "theta_s:", theta_s);
+    print_field("theta_s:", theta_s);
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "theta_s");
   }

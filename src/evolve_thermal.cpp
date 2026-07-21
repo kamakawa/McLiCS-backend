@@ -19,10 +19,12 @@ thermalEvolveN::thermalEvolveN(float *ni, int *ppt, Parameters *params)
   this->ni = ni;
   this->pt = ppt;
   this->params = params;
-  printf("Initializing thermal loop:\n");
-  printf("Ti= %g\n", params->Ti);
-  printf("Tf= %g\n", params->Tf);
-  printf("dT= %g\n\n", params->dT);
+  printf("  Thermal evolution\n");
+  print_field("Ti:", params->Ti);
+  print_field("Tf:", params->Tf);
+  print_field("dT:", params->dT);
+  print_field("Seed:", params->seed);
+  printf("\n");
 };
 
 int thermalEvolveN::run() {
@@ -39,7 +41,7 @@ int thermalEvolveN::run() {
   gsl_rng_env_setup();
   for (int i = 0; i < num_threads; i++) {
     rng[i] = gsl_rng_alloc(gsl_rng_ranlxs0);
-    gsl_rng_set(rng[i], i);
+    gsl_rng_set(rng[i], params->seed * 104729 + i);
   }
 
   sprintf(fname, "po.dat");
@@ -50,11 +52,8 @@ int thermalEvolveN::run() {
   else
     fprintf(po_file, "T S varS E varE\n");
   fflush(po_file);
-  printf("Starting thermal variation, for nematic molecules, from %g to %g with step os size %g\n",
-         params->Ti, params->Tf, params->dT);
-  printf("MCT=%d MCS=%d and %d threads\n",
-         params->MCT, params->MCS, num_threads);
-  fflush(stdout);
+  print_field("Threads:", num_threads);
+  printf("\n");
   fflush(stdout);
   for (params->T = params->Ti; (int)1e6 * sign * (params->T - params->Tf) >= 0; params->T += params->dT) {
     for (int step = 0; step < params->MCT; step++) {

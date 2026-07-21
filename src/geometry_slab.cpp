@@ -9,11 +9,12 @@
 
 #include "../include/anchoring.h"
 #include "../include/geometry.h"
+#include "../include/io.h"
 #include "../include/parameters.h"
 #include "../include/potential.h"
 
 Slab_Geometry::Slab_Geometry(int *pt, Parameters *params) : Geometry(params) {
-  printf("  Geometry     : Slab\n");
+  print_field("Geometry:", "Slab");
   nSurfaces = 2;
   ns = (float *)calloc(Nx * Ny * Nz * 3, sizeof(float));
   surfaces = std::vector<class Anchoring *>(nSurfaces);
@@ -38,8 +39,8 @@ Slab_Geometry::Slab_Geometry(int *pt, Parameters *params) : Geometry(params) {
     exit(2);
   }
 
-  printf("  %-13s%s\n", "X boundary:", params->XBoundtype);
-  printf("  %-13s%s\n", "Y boundary:", params->YBoundtype);
+  print_field("X boundary:", params->XBoundtype);
+  print_field("Y boundary:", params->YBoundtype);
   printf("\n");
 }
 

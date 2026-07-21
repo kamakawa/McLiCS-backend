@@ -10,11 +10,12 @@
 
 #include "../include/anchoring.h"
 #include "../include/geometry.h"
+#include "../include/io.h"
 #include "../include/parameters.h"
 #include "../include/potential.h"
 #define MAX(a, b) (a > b ? a : b)
 Custom_Geometry::Custom_Geometry(int *pt, Parameters *params) : Geometry(params) {
-  printf("  Geometry     : Custom\n");
+  print_field("Geometry:", "Custom");
 
   ns = (float *)calloc(Nx * Ny * Nz * 3, sizeof(float));
   pt = set_point_type_normals(pt, params);
@@ -47,9 +48,9 @@ Custom_Geometry::Custom_Geometry(int *pt, Parameters *params) : Geometry(params)
     exit(2);
   }
 
-  printf("  %-13s%s\n", "X boundary:", params->XBoundtype);
-  printf("  %-13s%s\n", "Y boundary:", params->YBoundtype);
-  printf("  %-13s%s\n", "Z boundary:", params->ZBoundtype);
+  print_field("X boundary:", params->XBoundtype);
+  print_field("Y boundary:", params->YBoundtype);
+  print_field("Z boundary:", params->ZBoundtype);
   printf("\n");
 }
 

@@ -20,15 +20,8 @@
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-static void print_separator(const char *seg = "=", int count = 60) {
-  for (int i = 0; i < count; i++) fputs(seg, stdout);
-  putchar('\n');
-}
-
 static void print_banner() {
-  print_separator("=");
-  printf("  McLiCS - Monte Carlo Liquid Crystal Simulator (v%s)\n", MCLICS_VERSION);
-  print_separator("=");
+  print_header("McLiCS - Monte Carlo Liquid Crystal Simulator (v" MCLICS_VERSION ")", 60, "=");
   printf("\n");
 }
 
@@ -83,9 +76,7 @@ int main(int argc, char **argv) {
   sim->print_n(fname, &params);
   sim->evolve->run();
 
-  print_separator("=");
-  printf("  SIMULATION COMPLETE\n");
-  print_separator("=");
+  print_header("SIMULATION COMPLETE", 60, "=");
   printf("\n");
 
   return 0;

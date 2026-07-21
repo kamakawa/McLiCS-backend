@@ -16,9 +16,10 @@
 
 stepEvolveN::stepEvolveN(float *ni, int *ppt, Parameters *params)
     : Nx(params->Nx), Ny(params->Ny), Nz(params->Nz), EvolveN(ni, ppt, params) {
-  printf("Initializing Step loop:\n");
-  printf("Initial File Number= %d\n", params->first_file);
-  printf("Last File Number= %d\n\n", params->first_file + params->fn);
+  printf("  Step evolution\n");
+  print_field("First file:", params->first_file);
+  print_field("Last file:", params->first_file + params->fn);
+  printf("\n");
   this->ni = ni;
   this->pt = ppt;
   this->params = params;
@@ -38,7 +39,7 @@ int stepEvolveN::run() {
   gsl_rng_env_setup();
   for (int i = 0; i < num_threads; i++) {
     rng[i] = gsl_rng_alloc(gsl_rng_ranlxs0);
-    gsl_rng_set(rng[i], i);
+    gsl_rng_set(rng[i], params->seed * 104729 + i);
   }
 
   sprintf(fname, "po.dat");
@@ -49,8 +50,8 @@ int stepEvolveN::run() {
     fprintf(po_file, "ii S varS E varE\n");
   fflush(po_file);
   params->T = params->Ti;
-  printf("Step relaxation, for nematic molecules, using MCT=%d MCS=%d and fn=%d using %d threads\n",
-         params->MCT, params->MCS, params->fn, num_threads);
+  print_field("Threads:", num_threads);
+  printf("\n");
   fflush(stdout);
   for (int ii = params->first_file; ii < params->fn + params->first_file; ii++) {
     for (int step = 0; step < params->MCT; step++) {

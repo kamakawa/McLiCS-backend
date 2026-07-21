@@ -9,11 +9,12 @@
 
 #include "../include/anchoring.h"
 #include "../include/geometry.h"
+#include "../include/io.h"
 #include "../include/parameters.h"
 #include "../include/potential.h"
 
 Sphere_Geometry::Sphere_Geometry(int *pt, Parameters *params) : Geometry(params) {
-  printf("  Geometry     : Sphere\n");
+  print_field("Geometry:", "Sphere");
   nSurfaces = 1;
   sprintf(params->XBoundtype, "free");
   sprintf(params->YBoundtype, "free");

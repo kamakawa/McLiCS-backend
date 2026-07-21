@@ -7,16 +7,19 @@
 #include <vector>
 
 #include "../include/anchoring.h"
+#include "../include/io.h"
 #include "../include/parameters.h"
 #include "../include/potential.h"
 FG_Anchoring::FG_Anchoring(Parameters *params, int id) {
   this->id = id;
-  printf("  Surface %d    : %s\n", id, name);
+  char label[24];
+  snprintf(label, sizeof(label), "Surface %d:", id);
+  print_field(label, name);
   this->params = params;
 
   try {
     W = params->W.at(id);
-    printf("  %-12s %g\n", "W:", W);
+    print_field("W:", W);
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "W");
   }
@@ -33,10 +36,12 @@ float FG_Anchoring::surface_potential(float ni[3], float s[3]) {
 FG_Anchoring_GHRL::FG_Anchoring_GHRL(Parameters *params, int id) {
   this->id = id;
   this->params = params;
-  printf("  Surface %d    : %s\n", id, name);
+  char label[24];
+  snprintf(label, sizeof(label), "Surface %d:", id);
+  print_field(label, name);
   try {
     W = params->W.at(id);
-    printf("  %-12s %g\n", "W:", W);
+    print_field("W:", W);
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "W");
   }

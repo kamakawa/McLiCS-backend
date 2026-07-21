@@ -7,16 +7,19 @@
 #include <vector>
 
 #include "../include/anchoring.h"
+#include "../include/io.h"
 #include "../include/parameters.h"
 #include "../include/potential.h"
 
 Homeotropic_Anchoring::Homeotropic_Anchoring(Parameters *params, int id) {
   this->id = id;
   this->params = params;
-  printf("  Surface %d    : %s\n", id, name);
+  char label[24];
+  snprintf(label, sizeof(label), "Surface %d:", id);
+  print_field(label, name);
   try {
     W = params->W.at(id);
-    printf("  %-12s %g\n", "W:", W);
+    print_field("W:", W);
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "W");
   }
@@ -33,10 +36,12 @@ float Homeotropic_Anchoring::surface_potential(float ni[3], float s[3]) {
 Homeotropic_Anchoring_GHRL::Homeotropic_Anchoring_GHRL(Parameters *params, int id) {
   this->id = id;
   this->params = params;
-  printf("  Surface %d    : %s\n", id, name);
+  char label[24];
+  snprintf(label, sizeof(label), "Surface %d:", id);
+  print_field(label, name);
   try {
     W = params->W.at(id);
-    printf("  %-12s %g\n", "W:", W);
+    print_field("W:", W);
   } catch (std::out_of_range dummy_var) {
     check_parameter(false, "W");
   }

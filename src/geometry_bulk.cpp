@@ -9,11 +9,12 @@
 
 #include "../include/anchoring.h"
 #include "../include/geometry.h"
+#include "../include/io.h"
 #include "../include/parameters.h"
 #include "../include/potential.h"
 
 Bulk_Geometry::Bulk_Geometry(int *pt, Parameters *params) : Geometry(params) {
-  printf("  Geometry     : Bulk\n");
+  print_field("Geometry:", "Bulk");
   ns = (float *)calloc(Nx * Ny * Nz * 3, sizeof(float));
 
   nSurfaces = 0;
@@ -47,9 +48,9 @@ Bulk_Geometry::Bulk_Geometry(int *pt, Parameters *params) : Geometry(params) {
     exit(2);
   }
 
-  printf("  %-13s%s\n", "X boundary:", params->XBoundtype);
-  printf("  %-13s%s\n", "Y boundary:", params->YBoundtype);
-  printf("  %-13s%s\n", "Z boundary:", params->ZBoundtype);
+  print_field("X boundary:", params->XBoundtype);
+  print_field("Y boundary:", params->YBoundtype);
+  print_field("Z boundary:", params->ZBoundtype);
   printf("\n");
 }
 
