@@ -12,6 +12,7 @@
 ![status](https://img.shields.io/badge/status-Iniciação%20Científica-informational)
 
 **Autor:** Eric Kamakawa &nbsp;·&nbsp; **Orientadores:** Prof. Dr. Rafael Zola, Prof. Dr. Rodolfo Teixeira
+
 **Curso:** Engenharia da Computação — UTFPR
 
 </div>
