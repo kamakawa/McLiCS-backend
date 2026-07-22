@@ -4,7 +4,8 @@
 #    make            -> GPU binary (mc_sim), requires nvcc
 #    make CPU        -> CPU-only binary (mc_sim)
 #    make clean      -> remove build artefacts and the binary
-#    make clean-data -> remove simulation output (ic.csv, po.dat, director_field_*.csv)
+#    make clean-data -> remove simulation output (ic.csv, po.dat, director_field_*.csv,
+#                        mclics_*.png gerados pelo analyze.py)
 # ===========================================================================
  PROGRAM := mc_sim
 ########### Gnu:
@@ -76,6 +77,7 @@ clean:
 clean-data:
 	@rm -f ic.csv po.dat
 	@find . -maxdepth 1 -type f -name "director_field_*.csv" -delete
-	@echo "Simulation output removed (ic.csv, po.dat, director_field_*.csv)."
+	@find . -maxdepth 1 -type f -name "mclics_*.png" -delete
+	@echo "Simulation output removed (ic.csv, po.dat, director_field_*.csv, mclics_*.png)."
 
 .PHONY: all CPU debug build clean clean-data renew

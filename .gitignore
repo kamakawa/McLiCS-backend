@@ -1,0 +1,16 @@
+# Build
+/build/
+/mc_sim
+/mc_sim_debug
+*.o
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Saída de simulação (McLiCS/analyze.py)
+ic.csv
+po.dat
+director_field_*.csv
+mclics_*.png
